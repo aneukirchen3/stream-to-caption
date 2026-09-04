@@ -9,26 +9,36 @@ using PodtextCaption.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Ensure required data directories exist
-string rootDir = Directory.GetCurrentDirectory();
-string dataDbDir = Path.GetFullPath(Path.Combine(rootDir, "../../data/database"));
-string dataAudioDir = Path.GetFullPath(Path.Combine(rootDir, "../../data/audio"));
-string dataTranscriptDir = Path.GetFullPath(Path.Combine(rootDir, "../../data/transcripts"));
+// Ensure required data directories exist using ContentRootPath (IIS & SmarterASP.NET safe)
+string baseContentPath = builder.Environment.ContentRootPath;
+string dataDir = Path.Combine(baseContentPath, "data");
+
+// Fallback for local dev environment if ../../data exists
+string localDataFallback = Path.GetFullPath(Path.Combine(baseContentPath, "../../data"));
+if (!Directory.Exists(dataDir) && Directory.Exists(localDataFallback))
+{
+    dataDir = localDataFallback;
+}
+
+string dataDbDir = Path.Combine(dataDir, "database");
+string dataAudioDir = Path.Combine(dataDir, "audio");
+string dataTranscriptDir = Path.Combine(dataDir, "transcripts");
 
 Directory.CreateDirectory(dataDbDir);
 Directory.CreateDirectory(dataAudioDir);
 Directory.CreateDirectory(dataTranscriptDir);
 
-// Configure SQLite DbContext
-string connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? $"Data Source={Path.Combine(dataDbDir, "podtext.db")}";
+// Configure SQLite DbContext with absolute path
+string dbFilePath = Path.Combine(dataDbDir, "podtext.db");
+string connectionString = $"Data Source={dbFilePath}";
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
 // Register HttpClient and Application Services
+builder.Services.AddHttpClient<ITranscriptionService, TranscriptionService>()
+    .RemoveAllLoggers();
 builder.Services.AddHttpClient<IAudioDownloadService, AudioDownloadService>();
-builder.Services.AddHttpClient<ITranscriptionService, TranscriptionService>();
 builder.Services.AddScoped<IAudioConversionService, AudioConversionService>();
 builder.Services.AddScoped<ITranscriptStorageService, TranscriptStorageService>();
 builder.Services.AddScoped<IPodcastJobService, PodcastJobService>();

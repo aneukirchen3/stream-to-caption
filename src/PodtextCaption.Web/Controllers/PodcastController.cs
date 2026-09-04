@@ -112,12 +112,13 @@ public class PodcastController : ControllerBase
         var podcast = await _podcastService.GetPodcastByIdAsync(id);
         if (podcast == null) return NotFound(new { error = "Podcast not found." });
 
-        if (string.IsNullOrEmpty(podcast.TranscriptPath) || !System.IO.File.Exists(podcast.TranscriptPath))
+        string? resolvedTranscriptPath = ResolvePhysicalPath(podcast.TranscriptPath, "transcripts");
+        if (resolvedTranscriptPath == null)
         {
             return NotFound(new { error = "Transcript is not ready or does not exist." });
         }
 
-        var transcript = await _transcriptStorage.LoadTranscriptAsync(podcast.TranscriptPath);
+        var transcript = await _transcriptStorage.LoadTranscriptAsync(resolvedTranscriptPath);
         if (transcript == null) return NotFound(new { error = "Transcript file corrupted or empty." });
 
         return Ok(transcript);
@@ -129,20 +130,15 @@ public class PodcastController : ControllerBase
         var podcast = await _podcastService.GetPodcastByIdAsync(id);
         if (podcast == null) return NotFound("Podcast not found.");
 
-        string audioPath = podcast.AudioPath;
-        if (string.IsNullOrEmpty(audioPath) || !System.IO.File.Exists(audioPath))
+        string? resolvedAudioPath = ResolvePhysicalPath(podcast.AudioPath, "audio")
+            ?? ResolvePhysicalPath(podcast.NormalizedAudioPath, "audio");
+
+        if (resolvedAudioPath == null)
         {
-            if (!string.IsNullOrEmpty(podcast.NormalizedAudioPath) && System.IO.File.Exists(podcast.NormalizedAudioPath))
-            {
-                audioPath = podcast.NormalizedAudioPath;
-            }
-            else
-            {
-                return NotFound("Audio file not found on disk.");
-            }
+            return NotFound("Audio file not found on disk.");
         }
 
-        string ext = Path.GetExtension(audioPath).ToLowerInvariant();
+        string ext = Path.GetExtension(resolvedAudioPath).ToLowerInvariant();
         string contentType = ext switch
         {
             ".wav" => "audio/wav",
@@ -153,8 +149,28 @@ public class PodcastController : ControllerBase
             _ => "audio/mpeg"
         };
 
-        // PhysicalFile supports HTTP 206 Partial Content automatically for range requests
-        return PhysicalFile(Path.GetFullPath(audioPath), contentType, enableRangeProcessing: true);
+        return PhysicalFile(resolvedAudioPath, contentType, enableRangeProcessing: true);
+    }
+
+    private static string? ResolvePhysicalPath(string? path, string defaultSubDir)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+
+        if (System.IO.File.Exists(path)) return Path.GetFullPath(path);
+
+        string fileName = Path.GetFileName(path);
+        string currentDir = Directory.GetCurrentDirectory();
+        string baseDir = AppContext.BaseDirectory;
+
+        string candidate1 = Path.Combine(currentDir, "data", defaultSubDir, fileName);
+        string candidate2 = Path.Combine(baseDir, "data", defaultSubDir, fileName);
+        string candidate3 = Path.GetFullPath(Path.Combine(currentDir, "../../data", defaultSubDir, fileName));
+
+        if (System.IO.File.Exists(candidate1)) return candidate1;
+        if (System.IO.File.Exists(candidate2)) return candidate2;
+        if (System.IO.File.Exists(candidate3)) return candidate3;
+
+        return null;
     }
 
     [HttpDelete("{id}")]

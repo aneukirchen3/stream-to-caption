@@ -41,13 +41,26 @@ public class TranscriptStorageService : ITranscriptStorageService
 
     public async Task<TranscriptDto?> LoadTranscriptAsync(string transcriptPath)
     {
-        if (!File.Exists(transcriptPath))
+        string actualPath = transcriptPath;
+        if (!File.Exists(actualPath))
         {
-            _logger.LogWarning("Transcript file not found: {Path}", transcriptPath);
+            string fileName = Path.GetFileName(transcriptPath);
+            string candidate1 = Path.Combine(Directory.GetCurrentDirectory(), "data", "transcripts", fileName);
+            string candidate2 = Path.Combine(AppContext.BaseDirectory, "data", "transcripts", fileName);
+            string candidate3 = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "../../data/transcripts", fileName));
+
+            if (File.Exists(candidate1)) actualPath = candidate1;
+            else if (File.Exists(candidate2)) actualPath = candidate2;
+            else if (File.Exists(candidate3)) actualPath = candidate3;
+        }
+
+        if (!File.Exists(actualPath))
+        {
+            _logger.LogWarning("Transcript file not found: {Path} (searched fallback locations)", transcriptPath);
             return null;
         }
 
-        string json = await File.ReadAllTextAsync(transcriptPath);
+        string json = await File.ReadAllTextAsync(actualPath);
         return JsonSerializer.Deserialize<TranscriptDto>(json);
     }
 
