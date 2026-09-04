@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PodtextCaption.Web/PodtextCaption.Web.csproj" />
+  </Folder>
+</Solution>

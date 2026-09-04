@@ -1,0 +1,119 @@
+@page "/import"
+@model ImportModel
+@{
+    ViewData["Title"] = "Import Podcast - PodtextCaption";
+}
+
+<!-- Import Podcast / Audio Card -->
+<section class="card import-card">
+    <h2 class="section-title">
+        <span>🎧</span> Import Podcast
+    </h2>
+
+    <div class="tabs">
+        <button id="tabUrl" class="tab-btn active">Direct Audio / Podcast URL</button>
+        <button id="tabUpload" class="tab-btn">Upload Local Audio File</button>
+    </div>
+
+    <form id="transcribeForm">
+        <div id="urlInputGroup" class="input-group">
+            <input type="url" id="urlInput" class="input-field" placeholder="https://example.com/podcast-episode.mp3" />
+            <button type="submit" id="submitBtn" class="btn-primary">
+                <span>Import & Transcribe</span>
+                <span>✨</span>
+            </button>
+        </div>
+
+        <div id="uploadInputGroup" class="input-group" style="display: none;">
+            <div class="file-drop-area" onclick="document.getElementById('fileInput').click()">
+                <p>📁 Click to select or drop an audio file (MP3, WAV, M4A, AAC, OGG, WEBM)</p>
+                <input type="file" id="fileInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.webm" style="display: none;" onchange="this.nextElementSibling.textContent = this.files[0] ? this.files[0].name : ''" />
+                <span style="font-weight: 600; color: var(--accent-color); margin-top: 0.5rem; display: block;"></span>
+            </div>
+            <button type="submit" class="btn-primary" style="margin-top: 1rem; width: 100%; justify-content: center;">
+                <span>Upload & Transcribe</span>
+            </button>
+        </div>
+
+        <div class="options-row">
+            <div>
+                <label for="langSelect" style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Language:</label>
+                <select id="langSelect" class="select-control">
+                    <option value="auto">Auto Detect</option>
+                    <option value="en">English</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="es">Spanish</option>
+                </select>
+            </div>
+            <div>
+                <label for="modelSelect" style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Whisper Model:</label>
+                <select id="modelSelect" class="select-control">
+                    <option value="tiny" selected>Tiny (Fastest, Recommended for CPU)</option>
+                    <option value="base">Base (Fast)</option>
+                    <option value="small">Small (Standard)</option>
+                    <option value="medium">Medium (Detailed)</option>
+                    <option value="large-v3">Large v3 (Highest Accuracy)</option>
+                </select>
+            </div>
+        </div>
+    </form>
+</section>
+
+<!-- Job Progress Card -->
+<section id="progressCard" class="card progress-card">
+    <h3 style="font-size: 1.05rem; font-weight: 600; margin-bottom: 0.75rem;">Processing Podcast</h3>
+    
+    <div class="progress-steps" style="margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.85rem;">
+        <div id="stepDownload" class="step-item" style="display: flex; justify-content: space-between; color: var(--text-muted);">
+            <span>Downloading audio...</span>
+            <span class="step-icon">○</span>
+        </div>
+        <div id="stepConvert" class="step-item" style="display: flex; justify-content: space-between; color: var(--text-muted);">
+            <span>Preparing audio (FFmpeg)...</span>
+            <span class="step-icon">○</span>
+        </div>
+        <div id="stepTranscribe" class="step-item" style="display: flex; justify-content: space-between; color: var(--text-muted);">
+            <span>Transcribing (Whisper)...</span>
+            <span class="step-icon">○</span>
+        </div>
+        <div id="stepGenerate" class="step-item" style="display: flex; justify-content: space-between; color: var(--text-muted);">
+            <span>Generating transcript...</span>
+            <span class="step-icon">○</span>
+        </div>
+    </div>
+
+    <div class="progress-info">
+        <span id="progressStatusMessage">Processing pipeline started...</span>
+        <span id="progressPercentage">0%</span>
+    </div>
+    <div class="progress-bar-outer">
+        <div id="progressBarInner" class="progress-bar-inner"></div>
+    </div>
+</section>
+
+<!-- Compact Completed Import Card -->
+<section id="completedCard" class="card completed-card" style="display: none; border-left: 4px solid #22c55e;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: #22c55e; font-weight: 600; font-size: 0.95rem; margin-bottom: 0.25rem;">
+                <span>✓</span> Transcription Completed
+            </div>
+            <h3 id="completedTitle" style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Episode Title</h3>
+            <span id="completedMeta" style="font-size: 0.85rem; color: var(--text-muted);">00:00 · English</span>
+        </div>
+        <a id="completedListenBtn" href="#" class="btn-primary" style="text-decoration: none; padding: 0.75rem 1.75rem;">
+            <span>Listen & Read</span>
+            <span>🎧</span>
+        </a>
+    </div>
+</section>
+
+<!-- Podcast Library List -->
+<section class="card" id="library">
+    <h3 class="section-title">
+        <span>📚</span> Podcast Library
+    </h3>
+    <div id="libraryContainer" class="podcast-list">
+        <!-- Dynamically populated -->
+    </div>
+</section>

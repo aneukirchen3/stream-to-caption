@@ -1,0 +1,73 @@
+@page "/listen/{id}"
+@model ListenModel
+@{
+    ViewData["Title"] = "Listen & Read Transcript - PodtextCaption";
+}
+
+<div class="listen-page-container">
+    <!-- Back Link & Header -->
+    <div class="listen-header">
+        <a href="/import" class="back-link">← Back to Import</a>
+        <div style="margin-top: 0.5rem;">
+            <h1 id="podcastTitle" style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">Loading podcast...</h1>
+            <span id="podcastMeta" style="font-size: 0.85rem; color: var(--text-muted);">Duration: 00:00 • Language: AUTO</span>
+        </div>
+    </div>
+
+    <!-- Sticky Audio Player -->
+    <section class="card player-card sticky-player">
+        <div class="player-controls">
+            <div class="main-controls">
+                <button id="skipBackBtn" class="btn-skip" title="-10 Seconds">⏮ -10s</button>
+                <button id="playPauseBtn" class="btn-play" title="Play / Pause (Spacebar)">
+                    <span id="playIcon">▶</span>
+                    <span id="pauseIcon" style="display: none;">❚❚</span>
+                </button>
+                <button id="skipForwardBtn" class="btn-skip" title="+10 Seconds">+10s ⏭</button>
+            </div>
+
+            <div class="timeline-container">
+                <span id="currentTimeText" class="time-display">00:00</span>
+                <input type="range" id="timelineSlider" class="timeline-slider" min="0" max="100" value="0" step="0.1" />
+                <span id="durationText" class="time-display">00:00</span>
+            </div>
+
+            <div class="secondary-controls">
+                <label for="speedSelect" style="font-size: 0.8rem; color: var(--text-muted);">Speed:</label>
+                <select id="speedSelect" class="speed-select">
+                    <option value="0.5">0.50x</option>
+                    <option value="0.75">0.75x</option>
+                    <option value="1.0" selected>1.00x</option>
+                    <option value="1.25">1.25x</option>
+                    <option value="1.5">1.50x</option>
+                    <option value="1.75">1.75x</option>
+                    <option value="2.0">2.00x</option>
+                </select>
+            </div>
+        </div>
+        <audio id="audioPlayer" style="display: none;"></audio>
+    </section>
+
+    <!-- Synchronized Transcript Card -->
+    <section class="card transcript-card">
+        <div class="transcript-header">
+            <h3 style="font-size: 1.1rem; font-weight: 600;">Synchronized Transcript</h3>
+            
+            <div class="search-box">
+                <span>🔍</span>
+                <input type="text" id="searchInput" placeholder="Search transcript..." />
+                <span id="searchCounter" class="search-counter"></span>
+                <button id="prevMatchBtn" class="btn-icon" style="width:26px; height:26px; font-size:0.75rem;" title="Previous Match">▲</button>
+                <button id="nextMatchBtn" class="btn-icon" style="width:26px; height:26px; font-size:0.75rem;" title="Next Match">▼</button>
+            </div>
+        </div>
+
+        <div id="transcriptContainer" class="transcript-container">
+            <!-- Dynamically populated with compact grid segments & words -->
+        </div>
+
+        <button id="followBtn" class="btn-follow">
+            <span>👇</span> Follow transcript
+        </button>
+    </section>
+</div>

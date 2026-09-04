@@ -1,0 +1,35 @@
+# .NET build output & user files
+bin/
+obj/
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+.idea/
+
+# Python Virtual Environment & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+transcription/venv/
+venv/
+env/
+
+# App Data (Downloaded audio, sqlite db, generated transcripts)
+data/audio/*
+!data/audio/.gitkeep
+data/transcripts/*
+!data/transcripts/.gitkeep
+data/database/*
+!data/database/.gitkeep
+
+# External Binary Tools (FFmpeg, yt-dlp)
+tools/ffmpeg/*
+!tools/ffmpeg/.gitkeep
+tools/yt-dlp/*
+!tools/yt-dlp/.gitkeep
+
+# System & OS files
+.DS_Store
+Thumbs.db

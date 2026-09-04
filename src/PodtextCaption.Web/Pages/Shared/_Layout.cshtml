@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PodtextCaption - Local Podcast Transcription & Synchronized Captioning</title>
+    <meta name="description" content="Local podcast transcription and synchronized captioning powered by Whisper & ASP.NET Core." />
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-container">
+            <div class="header-left">
+                <a href="/import" class="brand">
+                    <div class="brand-icon">🎙️</div>
+                    <div>
+                        <span class="brand-name">PodtextCaption</span>
+                        <span class="brand-badge">Local Engine</span>
+                    </div>
+                </a>
+                <nav class="nav-links">
+                    <a href="/import" class="nav-link" id="navImport">Import</a>
+                    <a href="/import#library" class="nav-link" id="navLibrary">Library</a>
+                </nav>
+            </div>
+            <div class="header-actions">
+                <div class="status-pills">
+                    <div class="status-pill">
+                        <span id="transcriberDot" class="dot offline"></span>
+                        <span id="transcriberStatus">Transcriber checking...</span>
+                    </div>
+                    <div class="status-pill">
+                        <span id="ffmpegDot" class="dot online"></span>
+                        <span>FFmpeg</span>
+                    </div>
+                </div>
+                <button id="themeToggleBtn" class="btn-icon" title="Toggle Light/Dark Theme">🌙</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        @RenderBody()
+    </main>
+
+    <script src="~/js/app.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
