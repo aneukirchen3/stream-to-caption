@@ -572,25 +572,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     const item = wordsArray[newWordIndex];
                     item.element.classList.add('active');
 
-                    // Active Segment highlight & smooth scroll
+                    // Active Segment highlight
                     if (item.segmentIndex !== activeSegmentIndex) {
                         if (activeSegmentIndex >= 0 && wordsArray[activeWordIndex]) {
                             wordsArray[activeWordIndex].segmentElement.classList.remove('active');
                         }
                         item.segmentElement.classList.add('active');
                         activeSegmentIndex = item.segmentIndex;
-
-                        if (!isUserScrolling) {
-                            item.segmentElement.scrollIntoView({
-                                behavior: 'smooth',
-                                block: 'center'
-                            });
-                        }
                     }
+
+                    // Keep currently spoken word centered on screen
+                    scrollToCenterIfNeeded(item.element);
                 }
                 activeWordIndex = newWordIndex;
             }
         });
+
+        function scrollToCenterIfNeeded(element) {
+            if (!element || isUserScrolling) return;
+            const rect = element.getBoundingClientRect();
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+            const targetMinY = viewportHeight * 0.35;
+            const targetMaxY = viewportHeight * 0.65;
+
+            // Smoothly center the element if it moves outside middle 30% area of screen
+            if (rect.top < targetMinY || rect.bottom > targetMaxY) {
+                element.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                    inline: 'nearest'
+                });
+            }
+        }
 
         function findActiveWordBinarySearch(time) {
             let low = 0;
@@ -634,15 +647,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (followBtn) followBtn.style.display = 'flex';
 
             clearTimeout(userScrollTimeout);
-            userScrollTimeout = setTimeout(() => {}, 5000);
+            userScrollTimeout = setTimeout(() => {
+                isUserScrolling = false;
+                if (followBtn) followBtn.style.display = 'none';
+            }, 6000);
         }
 
         if (followBtn) {
             followBtn.addEventListener('click', () => {
                 isUserScrolling = false;
                 followBtn.style.display = 'none';
-                if (activeSegmentIndex >= 0 && wordsArray[activeWordIndex]) {
-                    wordsArray[activeWordIndex].segmentElement.scrollIntoView({
+                if (activeWordIndex >= 0 && wordsArray[activeWordIndex]) {
+                    wordsArray[activeWordIndex].element.scrollIntoView({
                         behavior: 'smooth',
                         block: 'center'
                     });
