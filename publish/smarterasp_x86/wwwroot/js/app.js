@@ -692,17 +692,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pauseIcon) pauseIcon.style.display = 'none';
         });
 
-        if (skipBackBtn) {
-            skipBackBtn.addEventListener('click', () => {
-                audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 10);
+        document.querySelectorAll('#skipBackBtn, #skipBackBtnDesktop').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (audioPlayer) {
+                    audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 10);
+                }
             });
-        }
+        });
 
-        if (skipForwardBtn) {
-            skipForwardBtn.addEventListener('click', () => {
-                audioPlayer.currentTime = Math.min(audioPlayer.duration, audioPlayer.currentTime + 10);
+        document.querySelectorAll('#skipForwardBtn, #skipForwardBtnDesktop').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (audioPlayer) {
+                    audioPlayer.currentTime = Math.min(audioPlayer.duration || 0, audioPlayer.currentTime + 10);
+                }
             });
-        }
+        });
 
         if (speedSelect) {
             speedSelect.addEventListener('change', () => {

@@ -18,12 +18,12 @@
     <section class="card player-card sticky-player">
         <div class="player-controls">
             <div class="main-controls">
-                <button id="skipBackBtn" class="btn-skip" title="-10 Seconds">⏮ -10s</button>
+                <button id="skipBackBtnDesktop" class="btn-skip btn-skip-desktop" title="-10 Seconds">⏮ -10s</button>
                 <button id="playPauseBtn" class="btn-play" title="Play / Pause (Spacebar)">
                     <span id="playIcon">▶</span>
                     <span id="pauseIcon" style="display: none;">❚❚</span>
                 </button>
-                <button id="skipForwardBtn" class="btn-skip" title="+10 Seconds">+10s ⏭</button>
+                <button id="skipForwardBtnDesktop" class="btn-skip btn-skip-desktop" title="+10 Seconds">+10s ⏭</button>
             </div>
 
             <div class="timeline-container">
@@ -45,6 +45,13 @@
                 </select>
             </div>
         </div>
+
+        <!-- Mobile Skip Buttons Row (attached right below timeline) -->
+        <div class="skip-buttons-row">
+            <button id="skipBackBtn" class="btn-skip-mobile" title="-10 Seconds">↺ 10s</button>
+            <button id="skipForwardBtn" class="btn-skip-mobile" title="+10 Seconds">10s ↻</button>
+        </div>
+
         <audio id="audioPlayer" style="display: none;"></audio>
     </section>
 
