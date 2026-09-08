@@ -55,13 +55,24 @@ public class PodcastService : IPodcastService
     public async Task<Podcast> CreateFromUrlAsync(string url, string? title = null, string? language = null, string? model = null)
     {
         string derivedTitle = title ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(derivedTitle))
+        if (string.IsNullOrWhiteSpace(derivedTitle) || string.Equals(derivedTitle, "watch", StringComparison.OrdinalIgnoreCase))
         {
             try
             {
                 var uri = new Uri(url);
-                derivedTitle = Path.GetFileNameWithoutExtension(uri.AbsolutePath);
-                if (string.IsNullOrWhiteSpace(derivedTitle)) derivedTitle = uri.Host;
+                string fileNameStr = Path.GetFileNameWithoutExtension(uri.AbsolutePath);
+                if (!string.IsNullOrWhiteSpace(fileNameStr) && !string.Equals(fileNameStr, "watch", StringComparison.OrdinalIgnoreCase))
+                {
+                    derivedTitle = fileNameStr;
+                }
+                else if (uri.Host.Contains("youtube.com", StringComparison.OrdinalIgnoreCase) || uri.Host.Contains("youtu.be", StringComparison.OrdinalIgnoreCase))
+                {
+                    derivedTitle = "Vídeo do YouTube";
+                }
+                else
+                {
+                    derivedTitle = uri.Host;
+                }
             }
             catch
             {

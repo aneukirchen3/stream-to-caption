@@ -90,7 +90,24 @@ public class PodcastJobService : IPodcastJobService
             string originalAudioPath;
             if (!string.IsNullOrWhiteSpace(podcast.Url) && (podcast.Url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || podcast.Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
             {
-                originalAudioPath = await downloader.DownloadAudioAsync(podcast.Url, audioDir, podcast.Id, cancellationToken);
+                var downloadResult = await downloader.DownloadAudioAsync(podcast.Url, audioDir, podcast.Id, cancellationToken);
+                originalAudioPath = downloadResult.FilePath;
+
+                if (!string.IsNullOrWhiteSpace(downloadResult.MediaTitle))
+                {
+                    bool isGenericTitle = string.IsNullOrWhiteSpace(podcast.Title) ||
+                        string.Equals(podcast.Title, "watch", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(podcast.Title, "Vídeo do YouTube", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(podcast.Title, "Direct Audio Link", StringComparison.OrdinalIgnoreCase) ||
+                        podcast.Title.Contains("youtube.com", StringComparison.OrdinalIgnoreCase) ||
+                        podcast.Title.Contains("youtu.be", StringComparison.OrdinalIgnoreCase);
+
+                    if (isGenericTitle)
+                    {
+                        podcast.Title = downloadResult.MediaTitle;
+                        _logger.LogInformation("Updated podcast {Id} title from media metadata: '{Title}'", podcast.Id, downloadResult.MediaTitle);
+                    }
+                }
             }
             else if (!string.IsNullOrWhiteSpace(podcast.AudioPath) && File.Exists(podcast.AudioPath))
             {

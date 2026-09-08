@@ -9,10 +9,17 @@ using Microsoft.Extensions.Logging;
 
 namespace PodtextCaption.Web.Services;
 
+public class AudioDownloadResult
+{
+    public string FilePath { get; set; } = string.Empty;
+    public string? MediaTitle { get; set; }
+}
+
 public interface IAudioDownloadService
 {
-    Task<string> DownloadAudioAsync(string url, string destinationDir, string fileBaseName, CancellationToken cancellationToken = default);
+    Task<AudioDownloadResult> DownloadAudioAsync(string url, string destinationDir, string fileBaseName, CancellationToken cancellationToken = default);
     Task<bool> IsYtDlpAvailableAsync();
+    Task<string?> TryExtractMediaTitleAsync(string pageUrl, CancellationToken cancellationToken = default);
 }
 
 public class AudioDownloadService : IAudioDownloadService
@@ -53,18 +60,19 @@ public class AudioDownloadService : IAudioDownloadService
         }
     }
 
-    public async Task<string> DownloadAudioAsync(string url, string destinationDir, string fileBaseName, CancellationToken cancellationToken = default)
+    public async Task<AudioDownloadResult> DownloadAudioAsync(string url, string destinationDir, string fileBaseName, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(url))
-            throw new ArgumentException("URL cannot be empty.", nameof(url));
-
+        destinationDir = Path.GetFullPath(destinationDir);
         Directory.CreateDirectory(destinationDir);
 
         bool isDirectMediaUrl = IsDirectAudioUrl(url);
         if (isDirectMediaUrl)
         {
-            return await DownloadDirectFileAsync(url, destinationDir, fileBaseName, cancellationToken);
+            string directPath = await DownloadDirectFileAsync(url, destinationDir, fileBaseName, cancellationToken);
+            return new AudioDownloadResult { FilePath = directPath, MediaTitle = null };
         }
+
+        string? mediaTitle = await TryExtractMediaTitleAsync(url, cancellationToken);
 
         // 1. Try extracting direct audio URL (e.g. .mp3, .m4a, transistor.fm) embedded in the HTML web page
         string? extractedAudioUrl = await TryExtractAudioUrlFromHtmlAsync(url, cancellationToken);
@@ -73,7 +81,8 @@ public class AudioDownloadService : IAudioDownloadService
             _logger.LogInformation("Successfully extracted direct audio URL from HTML page: {AudioUrl}", extractedAudioUrl);
             try
             {
-                return await DownloadDirectFileAsync(extractedAudioUrl, destinationDir, fileBaseName, cancellationToken);
+                string directPath = await DownloadDirectFileAsync(extractedAudioUrl, destinationDir, fileBaseName, cancellationToken);
+                return new AudioDownloadResult { FilePath = directPath, MediaTitle = mediaTitle };
             }
             catch (Exception ex)
             {
@@ -85,11 +94,69 @@ public class AudioDownloadService : IAudioDownloadService
         bool hasYtDlp = await IsYtDlpAvailableAsync();
         if (hasYtDlp)
         {
-            return await DownloadWithYtDlpAsync(url, destinationDir, fileBaseName, cancellationToken);
+            var result = await DownloadWithYtDlpAsync(url, destinationDir, fileBaseName, cancellationToken);
+            if (string.IsNullOrWhiteSpace(result.MediaTitle))
+            {
+                result.MediaTitle = mediaTitle;
+            }
+            return result;
         }
 
         // 3. Fallback to direct HTTP download
-        return await DownloadDirectFileAsync(url, destinationDir, fileBaseName, cancellationToken);
+        string fallbackPath = await DownloadDirectFileAsync(url, destinationDir, fileBaseName, cancellationToken);
+        return new AudioDownloadResult { FilePath = fallbackPath, MediaTitle = mediaTitle };
+    }
+
+    public async Task<string?> TryExtractMediaTitleAsync(string pageUrl, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, pageUrl);
+            req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            req.Headers.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+
+            using var resp = await _httpClient.SendAsync(req, cancellationToken);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            string html = await resp.Content.ReadAsStringAsync(cancellationToken);
+
+            // Check og:title meta tag
+            var ogMatch = System.Text.RegularExpressions.Regex.Match(html, @"<meta\s+(?:property|name)=[""']og:title[""']\s+content=[""']([^""']+)[""']", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!ogMatch.Success)
+            {
+                ogMatch = System.Text.RegularExpressions.Regex.Match(html, @"<meta\s+content=[""']([^""']+)[""']\s+(?:property|name)=[""']og:title[""']", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            }
+
+            if (ogMatch.Success)
+            {
+                string title = System.Net.WebUtility.HtmlDecode(ogMatch.Groups[1].Value).Trim();
+                if (!string.IsNullOrWhiteSpace(title) && !string.Equals(title, "watch", StringComparison.OrdinalIgnoreCase))
+                {
+                    return title;
+                }
+            }
+
+            // Check <title> tag
+            var titleMatch = System.Text.RegularExpressions.Regex.Match(html, @"<title>(.*?)</title>", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+            if (titleMatch.Success)
+            {
+                string title = System.Net.WebUtility.HtmlDecode(titleMatch.Groups[1].Value).Trim();
+                if (title.EndsWith(" - YouTube", StringComparison.OrdinalIgnoreCase))
+                {
+                    title = title.Substring(0, title.Length - " - YouTube".Length).Trim();
+                }
+                if (!string.IsNullOrWhiteSpace(title) && !string.Equals(title, "watch", StringComparison.OrdinalIgnoreCase))
+                {
+                    return title;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to extract title from HTML page {Url}", pageUrl);
+        }
+
+        return null;
     }
 
     private bool IsDirectAudioUrl(string url)
@@ -192,7 +259,7 @@ public class AudioDownloadService : IAudioDownloadService
         return filePath;
     }
 
-    private async Task<string> DownloadWithYtDlpAsync(string url, string destinationDir, string fileBaseName, CancellationToken cancellationToken)
+    private async Task<AudioDownloadResult> DownloadWithYtDlpAsync(string url, string destinationDir, string fileBaseName, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Downloading audio using yt-dlp from {Url}", url);
         string ytDlpPath = GetYtDlpPath();
@@ -229,14 +296,43 @@ public class AudioDownloadService : IAudioDownloadService
             throw new Exception($"Audio download/extraction failed for web page: {stdErr}");
         }
 
+        string? mediaTitle = null;
+        if (!string.IsNullOrWhiteSpace(stdOut))
+        {
+            var lines = stdOut.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                string trimmed = line.Trim();
+                if (!string.IsNullOrWhiteSpace(trimmed) && 
+                    !trimmed.StartsWith("[") && 
+                    !trimmed.StartsWith("Deleting") && 
+                    !trimmed.StartsWith("Downloading") && 
+                    !trimmed.StartsWith("Destination:") &&
+                    !string.Equals(trimmed, "watch", StringComparison.OrdinalIgnoreCase))
+                {
+                    mediaTitle = trimmed;
+                    break;
+                }
+            }
+        }
+
         string expectedPath = Path.Combine(destinationDir, $"{fileBaseName}_orig.mp3");
-        if (File.Exists(expectedPath)) return expectedPath;
+        if (File.Exists(expectedPath))
+        {
+            return new AudioDownloadResult { FilePath = expectedPath, MediaTitle = mediaTitle };
+        }
 
         // Find any file starting with fileBaseName_orig
         var matchingFiles = Directory.GetFiles(destinationDir, $"{fileBaseName}_orig.*");
-        if (matchingFiles.Length > 0) return matchingFiles[0];
+        if (matchingFiles.Length > 0)
+        {
+            return new AudioDownloadResult { FilePath = matchingFiles[0], MediaTitle = mediaTitle };
+        }
 
-        throw new FileNotFoundException("Downloaded audio file was not found after execution.");
+        _logger.LogError("yt-dlp output stdout: {StdOut}", stdOut);
+        _logger.LogError("yt-dlp output stderr: {StdErr}", stdErr);
+
+        throw new FileNotFoundException($"Downloaded audio file was not found after execution in {destinationDir}. StdOut: {stdOut}");
     }
 
     private string GetYtDlpPath()
