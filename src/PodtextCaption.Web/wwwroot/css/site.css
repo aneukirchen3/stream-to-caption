@@ -922,3 +922,104 @@ body {
         line-height: 1.55;
     }
 }
+
+/* ==========================================
+   SPEAKER DIARIZATION & BADGES STYLING
+   ========================================== */
+.speaker-badge-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 8px;
+    vertical-align: middle;
+    user-select: none;
+}
+
+.speaker-badge-full {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    transition: transform 0.1s ease, filter 0.15s ease;
+}
+
+.speaker-badge-full:hover {
+    filter: brightness(1.15);
+    transform: scale(1.03);
+}
+
+.speaker-badge-initials {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 5px;
+    border-radius: 11px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    transition: transform 0.1s ease, filter 0.15s ease;
+}
+
+.speaker-badge-initials:hover {
+    filter: brightness(1.15);
+    transform: scale(1.08);
+}
+
+.speaker-change-divider {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0 6px 0;
+    padding-top: 8px;
+    border-top: 1px dashed var(--surface-border);
+}
+
+/* Speaker Rename Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-card {
+    background-color: var(--surface-bg);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(10px);
+    transition: transform 0.2s ease;
+}
+
+.modal-overlay.active .modal-card {
+    transform: translateY(0);
+}

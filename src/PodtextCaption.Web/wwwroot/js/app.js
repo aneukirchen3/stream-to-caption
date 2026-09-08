@@ -223,14 +223,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 setStepState(stepConvert, '●');
                 break;
             case 'Transcribing':
-                pct = 75;
+                pct = 70;
                 msg = 'Transcribing speech locally using Whisper...';
                 setStepState(stepDownload, '✓');
                 setStepState(stepConvert, '✓');
                 setStepState(stepTranscribe, '●');
                 break;
+            case 'IdentifyingSpeakers':
+                pct = 85;
+                msg = 'Identifying speakers and matching names...';
+                setStepState(stepDownload, '✓');
+                setStepState(stepConvert, '✓');
+                setStepState(stepTranscribe, '✓');
+                setStepState(stepGenerate, '●');
+                break;
             case 'Processing':
-                pct = 90;
+                pct = 95;
                 msg = 'Generating word timestamps...';
                 setStepState(stepDownload, '✓');
                 setStepState(stepConvert, '✓');
@@ -468,15 +476,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!transcript || !transcript.segments) return;
 
             let globalWordIdx = 0;
+            let lastSpeakerId = null;
 
             transcript.segments.forEach((seg, segIdx) => {
+                const isSpeakerChange = seg.speaker_id && seg.speaker_id !== lastSpeakerId;
+                if (seg.speaker_id) lastSpeakerId = seg.speaker_id;
+
                 const segDiv = document.createElement('div');
                 segDiv.className = 'transcript-segment';
                 segDiv.dataset.segmentIndex = segIdx;
 
                 // Segment click-to-seek
                 segDiv.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('transcript-word')) return; // handled by word click
+                    if (e.target.classList.contains('transcript-word') || e.target.classList.contains('speaker-badge-full') || e.target.classList.contains('speaker-badge-initials')) return;
                     seekAudioTo(seg.start);
                 });
 
@@ -493,6 +505,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Sentence Content Column
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'transcript-content';
+
+                // Render Speaker Badge
+                if (seg.speaker_name) {
+                    const badgeContainer = document.createElement('span');
+                    badgeContainer.className = 'speaker-badge-container';
+
+                    if (isSpeakerChange) {
+                        // Full name on speaker change / first occurrence
+                        const btn = document.createElement('button');
+                        btn.className = 'speaker-badge-full';
+                        btn.style.backgroundColor = seg.speaker_color || '#4f46e5';
+                        btn.textContent = seg.speaker_name;
+                        btn.title = `Click to rename speaker '${seg.speaker_name}'`;
+                        btn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openSpeakerRenameModal(podcastId, seg.speaker_id, seg.speaker_name);
+                        });
+                        badgeContainer.appendChild(btn);
+                    } else {
+                        // Initials on subsequent turns
+                        const btn = document.createElement('button');
+                        btn.className = 'speaker-badge-initials';
+                        btn.style.backgroundColor = seg.speaker_color || '#4f46e5';
+                        btn.textContent = seg.speaker_initials || seg.speaker_label || 'P';
+                        btn.title = `Speaker: ${seg.speaker_name} (Click to rename)`;
+                        btn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openSpeakerRenameModal(podcastId, seg.speaker_id, seg.speaker_name);
+                        });
+                        badgeContainer.appendChild(btn);
+                    }
+                    contentDiv.appendChild(badgeContainer);
+                }
 
                 if (seg.words && seg.words.length > 0) {
                     seg.words.forEach(w => {
@@ -546,6 +591,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 segDiv.appendChild(contentDiv);
                 transcriptContainer.appendChild(segDiv);
             });
+        }
+
+        function openSpeakerRenameModal(podcastId, speakerId, currentName) {
+            let modal = document.getElementById('speakerRenameModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'speakerRenameModal';
+                modal.className = 'modal-overlay';
+                modal.innerHTML = `
+                    <div class="modal-card">
+                        <h3 style="font-size:1.1rem; font-weight:600; margin-bottom:0.5rem;">Rename Speaker</h3>
+                        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">Enter full name for this speaker identity across the transcript:</p>
+                        <input type="text" id="speakerNameInput" class="input-field" style="width:100%; margin-bottom:1rem;" autofocus />
+                        <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                            <button id="modalCancelBtn" class="tab-btn">Cancel</button>
+                            <button id="modalSaveBtn" class="btn-primary" style="padding:0.4rem 1rem; font-size:0.9rem;">Save Speaker</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            const input = modal.querySelector('#speakerNameInput');
+            const cancelBtn = modal.querySelector('#modalCancelBtn');
+            const saveBtn = modal.querySelector('#modalSaveBtn');
+
+            input.value = currentName || '';
+            modal.classList.add('active');
+
+            const closeModal = () => modal.classList.remove('active');
+            cancelBtn.onclick = closeModal;
+            modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+
+            saveBtn.onclick = async () => {
+                const newName = input.value.trim();
+                if (!newName) return;
+                try {
+                    const res = await fetch(`/api/podcast/${podcastId}/speakers/${speakerId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ newName })
+                    });
+                    if (res.ok) {
+                        closeModal();
+                        loadPodcastData(podcastId);
+                    } else {
+                        alert('Failed to rename speaker.');
+                    }
+                } catch (e) {
+                    alert('Error renaming speaker.');
+                }
+            };
         }
 
         // --- High Performance O(log N) Binary Search Timing ---

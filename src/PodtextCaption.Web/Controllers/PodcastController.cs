@@ -7,6 +7,10 @@ using Microsoft.Extensions.Logging;
 using PodtextCaption.Web.Models;
 using PodtextCaption.Web.Services;
 
+using System.Linq;
+using Microsoft.EntityFrameworkCore;
+using PodtextCaption.Web.Data;
+
 namespace PodtextCaption.Web.Controllers;
 
 [ApiController]
@@ -16,17 +20,20 @@ public class PodcastController : ControllerBase
     private readonly IPodcastService _podcastService;
     private readonly IPodcastJobService _jobService;
     private readonly ITranscriptStorageService _transcriptStorage;
+    private readonly AppDbContext _db;
     private readonly ILogger<PodcastController> _logger;
 
     public PodcastController(
         IPodcastService podcastService,
         IPodcastJobService jobService,
         ITranscriptStorageService transcriptStorage,
+        AppDbContext db,
         ILogger<PodcastController> logger)
     {
         _podcastService = podcastService;
         _jobService = jobService;
         _transcriptStorage = transcriptStorage;
+        _db = db;
         _logger = logger;
     }
 
@@ -179,5 +186,74 @@ public class PodcastController : ControllerBase
         bool success = await _podcastService.DeletePodcastAsync(id);
         if (!success) return NotFound(new { error = "Podcast not found." });
         return Ok(new { success = true, message = "Podcast deleted successfully." });
+    }
+
+    [HttpGet("{id}/speakers")]
+    public async Task<IActionResult> GetSpeakers(string id)
+    {
+        var speakers = await _db.Speakers
+            .Where(s => s.PodcastId == id)
+            .OrderBy(s => s.SpeakerId)
+            .ToListAsync();
+        return Ok(speakers);
+    }
+
+    public class RenameSpeakerRequest
+    {
+        public string NewName { get; set; } = string.Empty;
+    }
+
+    [HttpPut("{id}/speakers/{speakerId}")]
+    public async Task<IActionResult> RenameSpeaker(string id, string speakerId, [FromBody] RenameSpeakerRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewName))
+            return BadRequest(new { error = "New name is required." });
+
+        var speaker = await _db.Speakers.FirstOrDefaultAsync(s => s.PodcastId == id && s.SpeakerId == speakerId);
+        if (speaker == null) return NotFound(new { error = "Speaker not found." });
+
+        speaker.Name = request.NewName.Trim();
+        speaker.IsConfirmed = true;
+        speaker.Source = "Manual";
+        await _db.SaveChangesAsync();
+
+        // Also update transcript JSON file
+        var podcast = await _podcastService.GetPodcastByIdAsync(id);
+        if (podcast != null && !string.IsNullOrWhiteSpace(podcast.TranscriptPath))
+        {
+            string? resolvedPath = ResolvePhysicalPath(podcast.TranscriptPath, "transcripts");
+            if (resolvedPath != null && System.IO.File.Exists(resolvedPath))
+            {
+                var transcript = await _transcriptStorage.LoadTranscriptAsync(resolvedPath);
+                if (transcript != null)
+                {
+                    // Update speaker list in transcript
+                    var spkDto = transcript.Speakers?.FirstOrDefault(s => s.SpeakerId == speakerId);
+                    if (spkDto != null)
+                    {
+                        spkDto.Name = speaker.Name;
+                        spkDto.IsConfirmed = true;
+                        spkDto.Source = "Manual";
+                    }
+
+                    // Update segments
+                    string[] parts = speaker.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    string initials = parts.Length >= 2 ? $"{parts[0][0]}{parts[^1][0]}".ToUpper() : speaker.Label;
+
+                    foreach (var seg in transcript.Segments)
+                    {
+                        if (seg.SpeakerId == speakerId)
+                        {
+                            seg.SpeakerName = speaker.Name;
+                            seg.SpeakerInitials = initials;
+                        }
+                    }
+
+                    await _transcriptStorage.SaveTranscriptAsync(id, transcript);
+                }
+            }
+        }
+
+        return Ok(speaker);
     }
 }

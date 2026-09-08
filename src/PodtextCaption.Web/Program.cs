@@ -52,6 +52,26 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
+
+    // Ensure Speakers table exists if database pre-existed before Speakers entity was added
+    string createSpeakersSql = @"
+        CREATE TABLE IF NOT EXISTS `Speakers` (
+            `Id` varchar(64) NOT NULL,
+            `PodcastId` varchar(64) NOT NULL,
+            `SpeakerId` varchar(50) NOT NULL,
+            `Label` varchar(20) NOT NULL,
+            `Name` varchar(150) NOT NULL,
+            `InferredName` longtext NULL,
+            `Confidence` double NOT NULL DEFAULT 0.5,
+            `Source` varchar(50) NOT NULL DEFAULT 'Fallback',
+            `IsConfirmed` tinyint(1) NOT NULL DEFAULT 0,
+            `ColorHex` varchar(20) NOT NULL DEFAULT '#4f46e5',
+            `CreatedAt` datetime(6) NOT NULL,
+            PRIMARY KEY (`Id`),
+            KEY `IX_Speakers_PodcastId` (`PodcastId`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+
+    db.Database.ExecuteSqlRaw(createSpeakersSql);
 }
 
 if (!app.Environment.IsDevelopment())

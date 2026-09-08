@@ -24,6 +24,7 @@ public static class PodcastStatus
     public const string Downloading = "Downloading";
     public const string Converting = "Converting";
     public const string Transcribing = "Transcribing";
+    public const string IdentifyingSpeakers = "IdentifyingSpeakers";
     public const string Processing = "Processing";
     public const string Completed = "Completed";
     public const string Failed = "Failed";

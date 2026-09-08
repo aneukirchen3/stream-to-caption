@@ -128,29 +128,64 @@ public class PodcastJobService : IPodcastJobService
             podcast.NormalizedAudioPath = normalizedPath;
             await db.SaveChangesAsync();
 
-            // Step 3: Transcribing with Python faster-whisper
-            await UpdateJobStatusAsync(db, job, podcast, PodcastStatus.Transcribing, 65, "Transcribing audio locally using Whisper...");
+            // Step 3: Transcribing with Python faster-whisper & Diarization
+            await UpdateJobStatusAsync(db, job, podcast, PodcastStatus.Transcribing, 60, "Transcribing audio locally using Whisper...");
 
             string selectedModel = string.IsNullOrWhiteSpace(model) ? (config["Transcription:Model"] ?? "small") : model;
             string selectedLang = string.IsNullOrWhiteSpace(userLanguage) ? "auto" : userLanguage;
 
-            var transcriptDto = await transcriber.TranscribeAsync(normalizedPath, selectedLang, selectedModel, cancellationToken);
+            var transcriptDto = await transcriber.TranscribeAsync(normalizedPath, selectedLang, selectedModel, podcast.Title, podcast.Title, cancellationToken);
 
-            // Step 4: Saving transcript JSON
-            await UpdateJobStatusAsync(db, job, podcast, PodcastStatus.Processing, 90, "Saving transcript data...");
+            // Step 4: Identifying speakers & matching metadata
+            await UpdateJobStatusAsync(db, job, podcast, PodcastStatus.IdentifyingSpeakers, 80, "Identifying speakers and mapping names...");
+
+            if (transcriptDto.Speakers != null && transcriptDto.Speakers.Count > 0)
+            {
+                try
+                {
+                    // Clear existing speakers for this podcast if re-running
+                    var existingSpeakers = db.Speakers.Where(s => s.PodcastId == podcast.Id);
+                    db.Speakers.RemoveRange(existingSpeakers);
+
+                    foreach (var spkDto in transcriptDto.Speakers)
+                    {
+                        db.Speakers.Add(new Speaker
+                        {
+                            PodcastId = podcast.Id,
+                            SpeakerId = spkDto.SpeakerId,
+                            Label = spkDto.Label,
+                            Name = spkDto.Name,
+                            InferredName = spkDto.InferredName,
+                            Confidence = spkDto.Confidence,
+                            Source = spkDto.Source,
+                            IsConfirmed = spkDto.IsConfirmed,
+                            ColorHex = spkDto.ColorHex,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Warning: Failed to save speakers to database for podcast {PodcastId}", podcast.Id);
+                }
+            }
+
+            // Step 5: Saving transcript JSON
+            await UpdateJobStatusAsync(db, job, podcast, PodcastStatus.Processing, 95, "Saving transcript data...");
 
             string transcriptPath = await storage.SaveTranscriptAsync(podcast.Id, transcriptDto);
             podcast.TranscriptPath = transcriptPath;
             podcast.Duration = transcriptDto.Duration;
             podcast.Language = transcriptDto.Language;
 
-            // Step 5: Completed!
+            // Step 6: Completed!
             podcast.Status = PodcastStatus.Completed;
             podcast.CompletedAt = DateTime.UtcNow;
 
             job.Status = PodcastStatus.Completed;
             job.Progress = 100;
-            job.StatusMessage = "Transcription completed!";
+            job.StatusMessage = "Transcription and speaker identification completed!";
             job.CompletedAt = DateTime.UtcNow;
 
             await db.SaveChangesAsync();

@@ -12,7 +12,7 @@ namespace PodtextCaption.Web.Services;
 public interface ITranscriptionService
 {
     Task<bool> IsServiceAvailableAsync(CancellationToken cancellationToken = default);
-    Task<TranscriptDto> TranscribeAsync(string audioFilePath, string language = "auto", string model = "small", CancellationToken cancellationToken = default);
+    Task<TranscriptDto> TranscribeAsync(string audioFilePath, string language = "auto", string model = "small", string? title = null, string? description = null, CancellationToken cancellationToken = default);
 }
 
 public class TranscriptionService : ITranscriptionService
@@ -46,15 +46,17 @@ public class TranscriptionService : ITranscriptionService
         }
     }
 
-    public async Task<TranscriptDto> TranscribeAsync(string audioFilePath, string language = "auto", string model = "small", CancellationToken cancellationToken = default)
+    public async Task<TranscriptDto> TranscribeAsync(string audioFilePath, string language = "auto", string model = "small", string? title = null, string? description = null, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Requesting transcription from Python service for '{File}' (language={Lang}, model={Model})", audioFilePath, language, model);
+        _logger.LogInformation("Requesting transcription and speaker diarization for '{File}' (title='{Title}')", audioFilePath, title);
 
         var requestPayload = new
         {
             file = System.IO.Path.GetFullPath(audioFilePath),
             language = language,
-            model = model
+            model = model,
+            title = title,
+            description = description
         };
 
         var response = await _httpClient.PostAsJsonAsync("transcribe", requestPayload, cancellationToken);

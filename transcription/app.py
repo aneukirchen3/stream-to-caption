@@ -6,13 +6,15 @@ from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 from faster_whisper import WhisperModel
 
+from diarization import perform_diarization_and_matching
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("podtext_transcription")
 
 app = FastAPI(
     title="PodtextCaption Transcription Service",
-    description="Local audio transcription service using faster-whisper with word-level timestamps",
-    version="1.0.0"
+    description="Local audio transcription service using faster-whisper with word-level timestamps and speaker diarization",
+    version="1.1.0"
 )
 
 # Global model cache to avoid reloading models unnecessarily
@@ -26,6 +28,8 @@ class TranscribeRequest(BaseModel):
     file: str = Field(..., description="Absolute local path to audio file")
     language: Optional[str] = Field("auto", description="Language code (e.g. 'en', 'pt', 'es', 'auto')")
     model: Optional[str] = Field("small", description="Whisper model size (tiny, base, small, medium, large-v3)")
+    title: Optional[str] = Field(None, description="Metadata title of the audio/video")
+    description: Optional[str] = Field(None, description="Metadata description of the audio/video")
 
 
 class WordItem(BaseModel):
@@ -35,18 +39,35 @@ class WordItem(BaseModel):
     probability: Optional[float] = None
 
 
+class SpeakerItem(BaseModel):
+    speaker_id: str
+    label: str
+    name: str
+    inferred_name: Optional[str] = None
+    confidence: float
+    source: str
+    is_confirmed: bool
+    color_hex: str
+
+
 class SegmentItem(BaseModel):
     id: int
     start: float
     end: float
     text: str
     words: List[WordItem]
+    speaker_id: Optional[str] = None
+    speaker_label: Optional[str] = None
+    speaker_name: Optional[str] = None
+    speaker_initials: Optional[str] = None
+    speaker_color: Optional[str] = None
 
 
 class TranscribeResponse(BaseModel):
     language: str
     duration: float
     segments: List[SegmentItem]
+    speakers: List[SpeakerItem] = []
 
 
 def get_whisper_model(model_size: str) -> WhisperModel:
@@ -131,16 +152,29 @@ def transcribe_audio(req: TranscribeRequest):
             ))
             seg_id += 1
 
+        # Perform Speaker Diarization and Name Matching
+        segments_dict_list = [s.dict() for s in formatted_segments]
+        diarized_segments_dicts, speaker_entities = perform_diarization_and_matching(
+            req.file,
+            segments_dict_list,
+            req.title or "",
+            req.description or ""
+        )
+
+        final_segments = [SegmentItem(**seg_d) for seg_d in diarized_segments_dicts]
+        final_speakers = [SpeakerItem(**spk_d) for spk_d in speaker_entities]
+
         elapsed = round(time.time() - start_time, 2)
         duration = round(info.duration, 2) if info and info.duration else 0.0
         detected_lang = info.language if info and info.language else (lang or "unknown")
 
-        logger.info(f"Transcription finished in {elapsed}s. Duration: {duration}s, Language: {detected_lang}, Segments: {len(formatted_segments)}")
+        logger.info(f"Transcription and diarization finished in {elapsed}s. Duration: {duration}s, Language: {detected_lang}, Segments: {len(final_segments)}, Speakers: {len(final_speakers)}")
 
         return TranscribeResponse(
             language=detected_lang,
             duration=duration,
-            segments=formatted_segments
+            segments=final_segments,
+            speakers=final_speakers
         )
 
     except Exception as ex:

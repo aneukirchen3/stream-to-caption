@@ -13,6 +13,9 @@ public class TranscriptDto
 
     [JsonPropertyName("segments")]
     public List<SegmentDto> Segments { get; set; } = new();
+
+    [JsonPropertyName("speakers")]
+    public List<SpeakerDto> Speakers { get; set; } = new();
 }
 
 public class SegmentDto
@@ -31,6 +34,21 @@ public class SegmentDto
 
     [JsonPropertyName("words")]
     public List<WordDto> Words { get; set; } = new();
+
+    [JsonPropertyName("speaker_id")]
+    public string? SpeakerId { get; set; }
+
+    [JsonPropertyName("speaker_label")]
+    public string? SpeakerLabel { get; set; }
+
+    [JsonPropertyName("speaker_name")]
+    public string? SpeakerName { get; set; }
+
+    [JsonPropertyName("speaker_initials")]
+    public string? SpeakerInitials { get; set; }
+
+    [JsonPropertyName("speaker_color")]
+    public string? SpeakerColor { get; set; }
 }
 
 public class WordDto
@@ -46,4 +64,31 @@ public class WordDto
 
     [JsonPropertyName("probability")]
     public double? Probability { get; set; }
+}
+
+public class SpeakerDto
+{
+    [JsonPropertyName("speaker_id")]
+    public string SpeakerId { get; set; } = string.Empty;
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("inferred_name")]
+    public string? InferredName { get; set; }
+
+    [JsonPropertyName("confidence")]
+    public double Confidence { get; set; }
+
+    [JsonPropertyName("source")]
+    public string Source { get; set; } = string.Empty;
+
+    [JsonPropertyName("is_confirmed")]
+    public bool IsConfirmed { get; set; }
+
+    [JsonPropertyName("color_hex")]
+    public string ColorHex { get; set; } = "#4f46e5";
 }
