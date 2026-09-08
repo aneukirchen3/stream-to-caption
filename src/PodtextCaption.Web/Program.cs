@@ -20,20 +20,18 @@ if (!Directory.Exists(dataDir) && Directory.Exists(localDataFallback))
     dataDir = localDataFallback;
 }
 
-string dataDbDir = Path.Combine(dataDir, "database");
 string dataAudioDir = Path.Combine(dataDir, "audio");
 string dataTranscriptDir = Path.Combine(dataDir, "transcripts");
 
-Directory.CreateDirectory(dataDbDir);
 Directory.CreateDirectory(dataAudioDir);
 Directory.CreateDirectory(dataTranscriptDir);
 
-// Configure SQLite DbContext with absolute path
-string dbFilePath = Path.Combine(dataDbDir, "podtext.db");
-string connectionString = $"Data Source={dbFilePath}";
+// Configure MySQL DbContext
+string connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 // Register HttpClient and Application Services
 builder.Services.AddHttpClient<ITranscriptionService, TranscriptionService>()

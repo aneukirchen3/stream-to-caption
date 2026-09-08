@@ -29,14 +29,18 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-# Activate python venv
-if [ -d "transcription/venv" ]; then
-    source transcription/venv/bin/activate
+# Check Python venv
+PYTHON_BIN="python3"
+if [ -d "$ROOT_DIR/transcription/venv" ]; then
+    source "$ROOT_DIR/transcription/venv/bin/activate"
+    PYTHON_BIN="$ROOT_DIR/transcription/venv/bin/python"
+else
+    echo "Warning: transcription/venv not found. Please run ./scripts/install.sh first."
 fi
 
 # Start Python FastAPI Transcription engine on 5001
 echo "Starting Python Transcription Service on port 5001..."
-python3 transcription/app.py &
+"$PYTHON_BIN" transcription/app.py &
 TRANS_PID=$!
 
 # Wait briefly for FastAPI to initialize
