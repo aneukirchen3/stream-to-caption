@@ -488,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Segment click-to-seek
                 segDiv.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('transcript-word') || e.target.classList.contains('speaker-badge-full') || e.target.classList.contains('speaker-badge-initials')) return;
+                    if (e.target.classList.contains('transcript-word') || e.target.classList.contains('speaker-label-name') || e.target.classList.contains('speaker-label-initials')) return;
                     seekAudioTo(seg.start);
                 });
 
@@ -506,37 +506,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'transcript-content';
 
-                // Render Speaker Badge
+                // Render Speaker Label
                 if (seg.speaker_name) {
-                    const badgeContainer = document.createElement('span');
-                    badgeContainer.className = 'speaker-badge-container';
+                    const tagContainer = document.createElement('span');
+                    tagContainer.className = 'speaker-tag-container';
+
+                    const speakerColor = seg.speaker_color || '#3b82f6';
+                    const initials = extractInitials(seg.speaker_name, seg.speaker_initials || seg.speaker_label);
 
                     if (isSpeakerChange) {
-                        // Full name on speaker change / first occurrence
-                        const btn = document.createElement('button');
-                        btn.className = 'speaker-badge-full';
-                        btn.style.backgroundColor = seg.speaker_color || '#4f46e5';
-                        btn.textContent = seg.speaker_name;
-                        btn.title = `Click to rename speaker '${seg.speaker_name}'`;
-                        btn.addEventListener('click', (e) => {
+                        // Full name outlined on speaker change / first occurrence
+                        const labelSpan = document.createElement('span');
+                        labelSpan.className = 'speaker-label-name';
+                        labelSpan.style.color = speakerColor;
+                        labelSpan.style.borderColor = speakerColor;
+                        labelSpan.textContent = `${seg.speaker_name}:`;
+                        labelSpan.title = `Click to rename speaker '${seg.speaker_name}'`;
+                        labelSpan.addEventListener('click', (e) => {
                             e.stopPropagation();
                             openSpeakerRenameModal(podcastId, seg.speaker_id, seg.speaker_name);
                         });
-                        badgeContainer.appendChild(btn);
+                        tagContainer.appendChild(labelSpan);
                     } else {
-                        // Initials on subsequent turns
-                        const btn = document.createElement('button');
-                        btn.className = 'speaker-badge-initials';
-                        btn.style.backgroundColor = seg.speaker_color || '#4f46e5';
-                        btn.textContent = seg.speaker_initials || seg.speaker_label || 'P';
-                        btn.title = `Speaker: ${seg.speaker_name} (Click to rename)`;
-                        btn.addEventListener('click', (e) => {
+                        // Uppercase initials with colon on subsequent turns
+                        const labelSpan = document.createElement('span');
+                        labelSpan.className = 'speaker-label-initials';
+                        labelSpan.style.color = speakerColor;
+                        labelSpan.textContent = `${initials}:`;
+                        labelSpan.title = `Speaker: ${seg.speaker_name} (Click to rename)`;
+                        labelSpan.addEventListener('click', (e) => {
                             e.stopPropagation();
                             openSpeakerRenameModal(podcastId, seg.speaker_id, seg.speaker_name);
                         });
-                        badgeContainer.appendChild(btn);
+                        tagContainer.appendChild(labelSpan);
                     }
-                    contentDiv.appendChild(badgeContainer);
+                    contentDiv.appendChild(tagContainer);
                 }
 
                 if (seg.words && seg.words.length > 0) {
@@ -926,6 +930,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- HELPER FUNCTIONS ---
+    function extractInitials(name, fallback) {
+        if (!name) return fallback || 'P';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        } else if (parts[0].length >= 2) {
+            return parts[0].substring(0, 2).toUpperCase();
+        }
+        return parts[0].toUpperCase();
+    }
+
     function formatTime(seconds) {
         if (isNaN(seconds) || seconds < 0) return '00:00';
         const mins = Math.floor(seconds / 60);

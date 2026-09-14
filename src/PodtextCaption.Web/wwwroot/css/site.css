@@ -924,55 +924,46 @@ body {
 }
 
 /* ==========================================
-   SPEAKER DIARIZATION & BADGES STYLING
+   SPEAKER DIARIZATION STYLING
    ========================================== */
-.speaker-badge-container {
+.speaker-tag-container {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    margin-right: 8px;
-    vertical-align: middle;
+    margin-right: 6px;
     user-select: none;
+    vertical-align: baseline;
 }
 
-.speaker-badge-full {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #ffffff;
-    cursor: pointer;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
-    transition: transform 0.1s ease, filter 0.15s ease;
-}
-
-.speaker-badge-full:hover {
-    filter: brightness(1.15);
-    transform: scale(1.03);
-}
-
-.speaker-badge-initials {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 5px;
-    border-radius: 11px;
-    font-size: 0.7rem;
+.speaker-label-name {
     font-weight: 700;
-    color: #ffffff;
+    font-size: 0.92em;
+    padding: 1px 8px;
+    border-radius: 6px;
+    border: 1.5px solid currentColor;
+    background-color: rgba(59, 130, 246, 0.08);
     cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-    transition: transform 0.1s ease, filter 0.15s ease;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    margin-right: 4px;
 }
 
-.speaker-badge-initials:hover {
-    filter: brightness(1.15);
-    transform: scale(1.08);
+.speaker-label-name:hover {
+    background-color: rgba(59, 130, 246, 0.2);
+    transform: translateY(-1px);
+}
+
+.speaker-label-initials {
+    font-weight: 700;
+    font-size: 0.9em;
+    padding: 1px 4px;
+    cursor: pointer;
+    opacity: 0.9;
+    transition: opacity 0.15s ease;
+    margin-right: 4px;
+}
+
+.speaker-label-initials:hover {
+    opacity: 1;
+    text-decoration: underline;
 }
 
 .speaker-change-divider {
