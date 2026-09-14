@@ -38,16 +38,16 @@ public class PodcastJobService : IPodcastJobService
             PodcastId = podcastId,
             Status = PodcastStatus.Pending,
             Progress = 5,
-            StatusMessage = "Job queued...",
+            StatusMessage = "Job queued in processing queue...",
+            Language = userLanguage,
+            Model = model,
             StartedAt = DateTime.UtcNow
         };
 
         db.ProcessingJobs.Add(job);
         await db.SaveChangesAsync();
 
-        // Queue pipeline execution asynchronously in background task
-        _ = Task.Run(() => ProcessPodcastPipelineAsync(job.Id, podcastId, userLanguage, model));
-
+        _logger.LogInformation("Job {JobId} enqueued for podcast {PodcastId} with status Pending.", job.Id, podcastId);
         return job;
     }
 

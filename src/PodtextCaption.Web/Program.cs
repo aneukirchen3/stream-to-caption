@@ -42,6 +42,9 @@ builder.Services.AddScoped<ITranscriptStorageService, TranscriptStorageService>(
 builder.Services.AddScoped<IPodcastJobService, PodcastJobService>();
 builder.Services.AddScoped<IPodcastService, PodcastService>();
 
+// Register 5-second Polling Queue Worker Service
+builder.Services.AddHostedService<PodcastProcessingQueueWorker>();
+
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
 

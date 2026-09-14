@@ -9,6 +9,8 @@ public class ProcessingJob
     public string Status { get; set; } = PodcastStatus.Pending;
     public int Progress { get; set; } = 0; // 0 to 100
     public string? StatusMessage { get; set; }
+    public string? Language { get; set; }
+    public string? Model { get; set; }
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
     public DateTime? CompletedAt { get; set; }
     public string? ErrorMessage { get; set; }
