@@ -21,6 +21,8 @@ public class PodcastController : ControllerBase
     private readonly IPodcastJobService _jobService;
     private readonly ITranscriptStorageService _transcriptStorage;
     private readonly AppDbContext _db;
+    private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _config;
     private readonly ILogger<PodcastController> _logger;
 
     public PodcastController(
@@ -28,13 +30,29 @@ public class PodcastController : ControllerBase
         IPodcastJobService jobService,
         ITranscriptStorageService transcriptStorage,
         AppDbContext db,
+        IWebHostEnvironment env,
+        IConfiguration config,
         ILogger<PodcastController> logger)
     {
         _podcastService = podcastService;
         _jobService = jobService;
         _transcriptStorage = transcriptStorage;
         _db = db;
+        _env = env;
+        _config = config;
         _logger = logger;
+    }
+
+    private bool IsProcessingEnabled => _env.IsDevelopment() || _config.GetValue<bool>("Features:EnableProcessingInProduction", false);
+
+    [HttpGet("config")]
+    public IActionResult GetConfig()
+    {
+        return Ok(new
+        {
+            isProcessingEnabled = IsProcessingEnabled,
+            environment = _env.EnvironmentName
+        });
     }
 
     [HttpGet]
@@ -55,6 +73,11 @@ public class PodcastController : ControllerBase
     [HttpPost("transcribe")]
     public async Task<IActionResult> TranscribeUrl([FromBody] TranscribeRequest request)
     {
+        if (!IsProcessingEnabled)
+        {
+            return BadRequest(new { error = "A importação e transcrição de novos áudios/vídeos estão disponíveis apenas no ambiente local (localhost)." });
+        }
+
         if (string.IsNullOrWhiteSpace(request.Url))
         {
             return BadRequest(new { error = "URL is required." });
@@ -68,7 +91,8 @@ public class PodcastController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error initiating transcription for URL {Url}", request.Url);
-            return StatusCode(500, new { error = $"Failed to start transcription: {ex.Message}" });
+            string message = ex.InnerException != null ? $"{ex.Message} -> {ex.InnerException.Message}" : ex.Message;
+            return StatusCode(500, new { error = $"Failed to start transcription: {message}" });
         }
     }
 
@@ -79,6 +103,10 @@ public class PodcastController : ControllerBase
         [FromForm] string? language = "auto",
         [FromForm] string? model = "small")
     {
+        if (!IsProcessingEnabled)
+        {
+            return BadRequest(new { error = "A importação e transcrição de novos áudios/vídeos estão disponíveis apenas no ambiente local (localhost)." });
+        }
         if (file == null || file.Length == 0)
         {
             return BadRequest(new { error = "Please provide a valid non-empty audio file." });
@@ -93,7 +121,8 @@ public class PodcastController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error uploading audio file {FileName}", file.FileName);
-            return StatusCode(500, new { error = $"Failed to process audio upload: {ex.Message}" });
+            string message = ex.InnerException != null ? $"{ex.Message} -> {ex.InnerException.Message}" : ex.Message;
+            return StatusCode(500, new { error = $"Failed to process audio upload: {message}" });
         }
     }
 

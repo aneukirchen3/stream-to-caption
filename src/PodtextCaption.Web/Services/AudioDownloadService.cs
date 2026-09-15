@@ -130,6 +130,10 @@ public class AudioDownloadService : IAudioDownloadService
             if (ogMatch.Success)
             {
                 string title = System.Net.WebUtility.HtmlDecode(ogMatch.Groups[1].Value).Trim();
+                if (title.EndsWith(" - YouTube", StringComparison.OrdinalIgnoreCase))
+                {
+                    title = title.Substring(0, title.Length - " - YouTube".Length).Trim();
+                }
                 if (!string.IsNullOrWhiteSpace(title) && !string.Equals(title, "watch", StringComparison.OrdinalIgnoreCase))
                 {
                     return title;
@@ -154,6 +158,43 @@ public class AudioDownloadService : IAudioDownloadService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to extract title from HTML page {Url}", pageUrl);
+        }
+
+        // Fallback: Use yt-dlp --print title if available
+        try
+        {
+            if (await IsYtDlpAvailableAsync())
+            {
+                string ytDlpPath = GetYtDlpPath();
+                var psi = new ProcessStartInfo
+                {
+                    FileName = ytDlpPath,
+                    Arguments = $"--no-check-certificates --print title \"{pageUrl}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                using var proc = Process.Start(psi);
+                if (proc != null)
+                {
+                    string titleOut = await proc.StandardOutput.ReadToEndAsync(cancellationToken);
+                    await proc.WaitForExitAsync(cancellationToken);
+                    titleOut = titleOut.Trim();
+                    if (titleOut.EndsWith(" - YouTube", StringComparison.OrdinalIgnoreCase))
+                    {
+                        titleOut = titleOut.Substring(0, titleOut.Length - " - YouTube".Length).Trim();
+                    }
+                    if (!string.IsNullOrWhiteSpace(titleOut) && !string.Equals(titleOut, "watch", StringComparison.OrdinalIgnoreCase) && !titleOut.StartsWith("["))
+                    {
+                        return titleOut;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to extract title via yt-dlp for {Url}", pageUrl);
         }
 
         return null;

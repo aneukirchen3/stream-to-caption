@@ -68,6 +68,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const urlInputGroup = document.getElementById('urlInputGroup');
         const uploadInputGroup = document.getElementById('uploadInputGroup');
 
+        // Check Environment Configuration (Localhost processing vs SmarterASP playback mode)
+        fetch('/api/podcast/config')
+            .then(res => res.json())
+            .then(cfg => {
+                if (cfg && cfg.isProcessingEnabled === false) {
+                    const importCard = document.querySelector('.import-card');
+                    if (importCard && !document.getElementById('envNoticeBanner')) {
+                        const notice = document.createElement('div');
+                        notice.id = 'envNoticeBanner';
+                        notice.style.cssText = 'background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: var(--text-primary); padding: 0.85rem 1rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5;';
+                        notice.innerHTML = '<strong>ℹ️ Ambiente de Demonstração:</strong> A importação e transcrição via fila de novos áudios/vídeos são ativas no ambiente <strong>Localhost</strong>. Neste ambiente publicado, você pode navegar na biblioteca, ouvir os áudios e visualizar as transcrições salvas.';
+                        importCard.insertBefore(notice, importCard.firstChild);
+                    }
+                }
+            })
+            .catch(() => {});
+
         if (tabUrl && tabUpload) {
             tabUrl.addEventListener('click', () => {
                 tabUrl.classList.add('active');

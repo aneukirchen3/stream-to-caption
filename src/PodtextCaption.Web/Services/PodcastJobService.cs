@@ -95,18 +95,8 @@ public class PodcastJobService : IPodcastJobService
 
                 if (!string.IsNullOrWhiteSpace(downloadResult.MediaTitle))
                 {
-                    bool isGenericTitle = string.IsNullOrWhiteSpace(podcast.Title) ||
-                        string.Equals(podcast.Title, "watch", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(podcast.Title, "Vídeo do YouTube", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(podcast.Title, "Direct Audio Link", StringComparison.OrdinalIgnoreCase) ||
-                        podcast.Title.Contains("youtube.com", StringComparison.OrdinalIgnoreCase) ||
-                        podcast.Title.Contains("youtu.be", StringComparison.OrdinalIgnoreCase);
-
-                    if (isGenericTitle)
-                    {
-                        podcast.Title = downloadResult.MediaTitle;
-                        _logger.LogInformation("Updated podcast {Id} title from media metadata: '{Title}'", podcast.Id, downloadResult.MediaTitle);
-                    }
+                    podcast.Title = downloadResult.MediaTitle;
+                    _logger.LogInformation("Updated podcast {Id} title from media metadata: '{Title}'", podcast.Id, downloadResult.MediaTitle);
                 }
             }
             else if (!string.IsNullOrWhiteSpace(podcast.AudioPath) && File.Exists(podcast.AudioPath))

@@ -42,8 +42,11 @@ builder.Services.AddScoped<ITranscriptStorageService, TranscriptStorageService>(
 builder.Services.AddScoped<IPodcastJobService, PodcastJobService>();
 builder.Services.AddScoped<IPodcastService, PodcastService>();
 
-// Register 5-second Polling Queue Worker Service
-builder.Services.AddHostedService<PodcastProcessingQueueWorker>();
+// Register 5-second Polling Queue Worker Service (Only in Localhost/Development or if explicitly enabled in configuration)
+if (builder.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Features:EnableProcessingWorker", false))
+{
+    builder.Services.AddHostedService<PodcastProcessingQueueWorker>();
+}
 
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
@@ -75,6 +78,10 @@ using (var scope = app.Services.CreateScope())
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 
     db.Database.ExecuteSqlRaw(createSpeakersSql);
+
+    // Ensure ProcessingJobs table has Language and Model columns if database pre-existed
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE `ProcessingJobs` ADD `Language` varchar(50) NULL;"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE `ProcessingJobs` ADD `Model` varchar(50) NULL;"); } catch { }
 }
 
 if (!app.Environment.IsDevelopment())
