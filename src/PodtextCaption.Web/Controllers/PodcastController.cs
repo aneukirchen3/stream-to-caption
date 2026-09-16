@@ -20,6 +20,7 @@ public class PodcastController : ControllerBase
     private readonly IPodcastService _podcastService;
     private readonly IPodcastJobService _jobService;
     private readonly ITranscriptStorageService _transcriptStorage;
+    private readonly IFtpStorageService _ftpStorage;
     private readonly AppDbContext _db;
     private readonly IWebHostEnvironment _env;
     private readonly IConfiguration _config;
@@ -29,6 +30,7 @@ public class PodcastController : ControllerBase
         IPodcastService podcastService,
         IPodcastJobService jobService,
         ITranscriptStorageService transcriptStorage,
+        IFtpStorageService ftpStorage,
         AppDbContext db,
         IWebHostEnvironment env,
         IConfiguration config,
@@ -37,6 +39,7 @@ public class PodcastController : ControllerBase
         _podcastService = podcastService;
         _jobService = jobService;
         _transcriptStorage = transcriptStorage;
+        _ftpStorage = ftpStorage;
         _db = db;
         _env = env;
         _config = config;
@@ -278,7 +281,12 @@ public class PodcastController : ControllerBase
                         }
                     }
 
-                    await _transcriptStorage.SaveTranscriptAsync(id, transcript);
+                    string savedPath = await _transcriptStorage.SaveTranscriptAsync(id, transcript);
+                    if (!string.IsNullOrEmpty(savedPath) && System.IO.File.Exists(savedPath))
+                    {
+                        string fileName = System.IO.Path.GetFileName(savedPath);
+                        await _ftpStorage.UploadFileAsync(savedPath, $"transcripts/{fileName}");
+                    }
                 }
             }
         }

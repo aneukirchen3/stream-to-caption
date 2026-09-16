@@ -68,6 +68,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const urlInputGroup = document.getElementById('urlInputGroup');
         const uploadInputGroup = document.getElementById('uploadInputGroup');
 
+        // Check Environment Configuration (Localhost processing vs SmarterASP playback mode)
+        fetch('/api/podcast/config')
+            .then(res => res.json())
+            .then(cfg => {
+                if (cfg && cfg.isProcessingEnabled === false) {
+                    const importCard = document.querySelector('.import-card');
+                    if (importCard && !document.getElementById('envNoticeBanner')) {
+                        const notice = document.createElement('div');
+                        notice.id = 'envNoticeBanner';
+                        notice.style.cssText = 'background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: var(--text-primary); padding: 0.85rem 1rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5;';
+                        notice.innerHTML = '<strong>ℹ️ Ambiente de Demonstração:</strong> A importação e transcrição via fila de novos áudios/vídeos são ativas no ambiente <strong>Localhost</strong>. Neste ambiente publicado, você pode navegar na biblioteca, ouvir os áudios e visualizar as transcrições salvas.';
+                        importCard.insertBefore(notice, importCard.firstChild);
+                    }
+                }
+            })
+            .catch(() => {});
+
         if (tabUrl && tabUpload) {
             tabUrl.addEventListener('click', () => {
                 tabUrl.classList.add('active');
@@ -223,14 +240,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 setStepState(stepConvert, '●');
                 break;
             case 'Transcribing':
-                pct = 75;
+                pct = 70;
                 msg = 'Transcribing speech locally using Whisper...';
                 setStepState(stepDownload, '✓');
                 setStepState(stepConvert, '✓');
                 setStepState(stepTranscribe, '●');
                 break;
+            case 'IdentifyingSpeakers':
+                pct = 85;
+                msg = 'Identifying speakers and matching names...';
+                setStepState(stepDownload, '✓');
+                setStepState(stepConvert, '✓');
+                setStepState(stepTranscribe, '✓');
+                setStepState(stepGenerate, '●');
+                break;
             case 'Processing':
-                pct = 90;
+                pct = 95;
                 msg = 'Generating word timestamps...';
                 setStepState(stepDownload, '✓');
                 setStepState(stepConvert, '✓');
@@ -468,15 +493,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!transcript || !transcript.segments) return;
 
             let globalWordIdx = 0;
+            let lastSpeakerId = null;
 
             transcript.segments.forEach((seg, segIdx) => {
+                const isSpeakerChange = seg.speaker_id && seg.speaker_id !== lastSpeakerId;
+                if (seg.speaker_id) lastSpeakerId = seg.speaker_id;
+
                 const segDiv = document.createElement('div');
                 segDiv.className = 'transcript-segment';
                 segDiv.dataset.segmentIndex = segIdx;
 
                 // Segment click-to-seek
                 segDiv.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('transcript-word')) return; // handled by word click
+                    if (e.target.classList.contains('transcript-word') || e.target.classList.contains('speaker-label-name') || e.target.classList.contains('speaker-label-initials')) return;
                     seekAudioTo(seg.start);
                 });
 
@@ -493,6 +522,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Sentence Content Column
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'transcript-content';
+
+                // Render Speaker Label
+                if (seg.speaker_name) {
+                    const tagContainer = document.createElement('span');
+                    tagContainer.className = 'speaker-tag-container';
+
+                    const speakerColor = seg.speaker_color || '#3b82f6';
+                    const initials = extractInitials(seg.speaker_name, seg.speaker_initials || seg.speaker_label);
+
+                    if (isSpeakerChange) {
+                        // Full name outlined on speaker change / first occurrence
+                        const labelSpan = document.createElement('span');
+                        labelSpan.className = 'speaker-label-name';
+                        labelSpan.style.color = speakerColor;
+                        labelSpan.style.borderColor = speakerColor;
+                        labelSpan.textContent = `${seg.speaker_name}:`;
+                        labelSpan.title = `Click to rename speaker '${seg.speaker_name}'`;
+                        labelSpan.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openSpeakerRenameModal(podcastId, seg.speaker_id, seg.speaker_name);
+                        });
+                        tagContainer.appendChild(labelSpan);
+                    } else {
+                        // Uppercase initials with colon on subsequent turns
+                        const labelSpan = document.createElement('span');
+                        labelSpan.className = 'speaker-label-initials';
+                        labelSpan.style.color = speakerColor;
+                        labelSpan.textContent = `${initials}:`;
+                        labelSpan.title = `Speaker: ${seg.speaker_name} (Click to rename)`;
+                        labelSpan.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openSpeakerRenameModal(podcastId, seg.speaker_id, seg.speaker_name);
+                        });
+                        tagContainer.appendChild(labelSpan);
+                    }
+                    contentDiv.appendChild(tagContainer);
+                }
 
                 if (seg.words && seg.words.length > 0) {
                     seg.words.forEach(w => {
@@ -546,6 +612,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 segDiv.appendChild(contentDiv);
                 transcriptContainer.appendChild(segDiv);
             });
+        }
+
+        function openSpeakerRenameModal(podcastId, speakerId, currentName) {
+            let modal = document.getElementById('speakerRenameModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'speakerRenameModal';
+                modal.className = 'modal-overlay';
+                modal.innerHTML = `
+                    <div class="modal-card">
+                        <h3 style="font-size:1.1rem; font-weight:600; margin-bottom:0.5rem;">Rename Speaker</h3>
+                        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">Enter full name for this speaker identity across the transcript:</p>
+                        <input type="text" id="speakerNameInput" class="input-field" style="width:100%; margin-bottom:1rem;" autofocus />
+                        <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                            <button id="modalCancelBtn" class="tab-btn">Cancel</button>
+                            <button id="modalSaveBtn" class="btn-primary" style="padding:0.4rem 1rem; font-size:0.9rem;">Save Speaker</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            const input = modal.querySelector('#speakerNameInput');
+            const cancelBtn = modal.querySelector('#modalCancelBtn');
+            const saveBtn = modal.querySelector('#modalSaveBtn');
+
+            input.value = currentName || '';
+            modal.classList.add('active');
+
+            const closeModal = () => modal.classList.remove('active');
+            cancelBtn.onclick = closeModal;
+            modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+
+            saveBtn.onclick = async () => {
+                const newName = input.value.trim();
+                if (!newName) return;
+                try {
+                    const res = await fetch(`/api/podcast/${podcastId}/speakers/${speakerId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ newName })
+                    });
+                    if (res.ok) {
+                        closeModal();
+                        loadPodcastData(podcastId);
+                    } else {
+                        alert('Failed to rename speaker.');
+                    }
+                } catch (e) {
+                    alert('Error renaming speaker.');
+                }
+            };
         }
 
         // --- High Performance O(log N) Binary Search Timing ---
@@ -829,6 +947,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- HELPER FUNCTIONS ---
+    function extractInitials(name, fallback) {
+        if (!name) return fallback || 'P';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        } else if (parts[0].length >= 2) {
+            return parts[0].substring(0, 2).toUpperCase();
+        }
+        return parts[0].toUpperCase();
+    }
+
     function formatTime(seconds) {
         if (isNaN(seconds) || seconds < 0) return '00:00';
         const mins = Math.floor(seconds / 60);

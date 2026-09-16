@@ -169,6 +169,28 @@ public class PodcastJobService : IPodcastJobService
             podcast.Duration = transcriptDto.Duration;
             podcast.Language = transcriptDto.Language;
 
+            // FTP Synchronization (Audio & Transcript JSON)
+            try
+            {
+                var ftp = scope.ServiceProvider.GetRequiredService<IFtpStorageService>();
+
+                if (!string.IsNullOrEmpty(podcast.AudioPath) && File.Exists(podcast.AudioPath))
+                {
+                    string audioFileName = Path.GetFileName(podcast.AudioPath);
+                    await ftp.UploadFileAsync(podcast.AudioPath, $"audio/{audioFileName}", cancellationToken);
+                }
+
+                if (!string.IsNullOrEmpty(podcast.TranscriptPath) && File.Exists(podcast.TranscriptPath))
+                {
+                    string transcriptFileName = Path.GetFileName(podcast.TranscriptPath);
+                    await ftp.UploadFileAsync(podcast.TranscriptPath, $"transcripts/{transcriptFileName}", cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "FTP sync warning for Job {JobId}, Podcast {PodcastId}", jobId, podcastId);
+            }
+
             // Step 6: Completed!
             podcast.Status = PodcastStatus.Completed;
             podcast.CompletedAt = DateTime.UtcNow;

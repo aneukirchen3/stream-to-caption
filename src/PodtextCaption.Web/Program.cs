@@ -41,6 +41,7 @@ builder.Services.AddScoped<IAudioConversionService, AudioConversionService>();
 builder.Services.AddScoped<ITranscriptStorageService, TranscriptStorageService>();
 builder.Services.AddScoped<IPodcastJobService, PodcastJobService>();
 builder.Services.AddScoped<IPodcastService, PodcastService>();
+builder.Services.AddScoped<IFtpStorageService, FtpStorageService>();
 
 // Register 5-second Polling Queue Worker Service (Only in Localhost/Development or if explicitly enabled in configuration)
 if (builder.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Features:EnableProcessingWorker", false))

@@ -922,3 +922,95 @@ body {
         line-height: 1.55;
     }
 }
+
+/* ==========================================
+   SPEAKER DIARIZATION STYLING
+   ========================================== */
+.speaker-tag-container {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 6px;
+    user-select: none;
+    vertical-align: baseline;
+}
+
+.speaker-label-name {
+    font-weight: 700;
+    font-size: 0.92em;
+    padding: 1px 8px;
+    border-radius: 6px;
+    border: 1.5px solid currentColor;
+    background-color: rgba(59, 130, 246, 0.08);
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    margin-right: 4px;
+}
+
+.speaker-label-name:hover {
+    background-color: rgba(59, 130, 246, 0.2);
+    transform: translateY(-1px);
+}
+
+.speaker-label-initials {
+    font-weight: 700;
+    font-size: 0.9em;
+    padding: 1px 4px;
+    cursor: pointer;
+    opacity: 0.9;
+    transition: opacity 0.15s ease;
+    margin-right: 4px;
+}
+
+.speaker-label-initials:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+.speaker-change-divider {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0 6px 0;
+    padding-top: 8px;
+    border-top: 1px dashed var(--surface-border);
+}
+
+/* Speaker Rename Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-card {
+    background-color: var(--surface-bg);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(10px);
+    transition: transform 0.2s ease;
+}
+
+.modal-overlay.active .modal-card {
+    transform: translateY(0);
+}
