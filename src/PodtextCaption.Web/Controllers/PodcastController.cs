@@ -58,6 +58,35 @@ public class PodcastController : ControllerBase
         });
     }
 
+    [HttpGet("queue-status")]
+    [HttpGet("/api/status")]
+    public async Task<IActionResult> GetQueueStatus()
+    {
+        var record = await _db.QueueStatus.FirstOrDefaultAsync(q => q.Id == 1);
+        DateTime brasiliaNow = PodcastProcessingQueueWorker.GetBrasiliaTime();
+
+        string dsStatus = record?.DsStatus ?? "Inativo";
+        DateTime dtLastUpdate = record?.DtLastUpdateStatus ?? brasiliaNow;
+
+        double secondsSinceLastUpdate = Math.Max(0, (brasiliaNow - dtLastUpdate).TotalSeconds);
+
+        // Tolerance rule: If dt_last_update_status is older than 15 seconds, consider service "Inativo"
+        bool isOperational = dsStatus.Equals("Ativo", StringComparison.OrdinalIgnoreCase) && secondsSinceLastUpdate <= 15;
+        string effectiveStatus = isOperational ? "Ativo" : "Inativo";
+
+        return Ok(new
+        {
+            id = 1,
+            ds_status = effectiveStatus,
+            raw_status = dsStatus,
+            dt_last_update_status = dtLastUpdate,
+            dt_last_update_status_formatted = dtLastUpdate.ToString("dd/MM/yyyy HH:mm:ss"),
+            is_operational = isOperational,
+            seconds_since_last_update = Math.Round(secondsSinceLastUpdate, 1),
+            brasilia_now = brasiliaNow.ToString("dd/MM/yyyy HH:mm:ss")
+        });
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {

@@ -83,6 +83,18 @@ using (var scope = app.Services.CreateScope())
     // Ensure ProcessingJobs table has Language and Model columns if database pre-existed
     try { db.Database.ExecuteSqlRaw("ALTER TABLE `ProcessingJobs` ADD `Language` varchar(50) NULL;"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE `ProcessingJobs` ADD `Model` varchar(50) NULL;"); } catch { }
+
+    // Ensure queue_status table exists and seed ID 1
+    string createQueueStatusSql = @"
+        CREATE TABLE IF NOT EXISTS `queue_status` (
+            `id` int NOT NULL,
+            `ds_status` varchar(50) NOT NULL DEFAULT 'Inativo',
+            `dt_last_update_status` datetime(6) NOT NULL,
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+
+    db.Database.ExecuteSqlRaw(createQueueStatusSql);
+    try { db.Database.ExecuteSqlRaw("INSERT IGNORE INTO `queue_status` (`id`, `ds_status`, `dt_last_update_status`) VALUES (1, 'Inativo', NOW());"); } catch { }
 }
 
 if (!app.Environment.IsDevelopment())

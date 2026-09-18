@@ -1,0 +1,176 @@
+@page "/status"
+@model PodtextCaption.Web.Pages.StatusModel
+@{
+    ViewData["Title"] = "Status da Fila - PodtextCaption";
+}
+
+<div class="status-page-container" style="max-width: 900px; margin: 2rem auto; padding: 0 1rem;">
+    <!-- Page Header -->
+    <div style="margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1 style="font-size: 1.875rem; font-weight: 700; margin: 0; color: var(--text-primary, #f9fafb); display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 2rem;">⚡</span> Monitoramento da Fila (SaaS)
+            </h1>
+            <p style="margin-top: 0.5rem; color: var(--text-secondary, #9ca3af); font-size: 0.95rem;">
+                Acompanhamento em tempo real do serviço de processamento e batimento cardíaco (Heartbeat).
+            </p>
+        </div>
+        <div>
+            <span id="livePulseBadge" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
+                <span id="pulseDot" style="width: 8px; height: 8px; border-radius: 50%; background-color: #9ca3af; display: inline-block;"></span>
+                <span id="pulseText">Atualizando...</span>
+            </span>
+        </div>
+    </div>
+
+    <!-- Main Operational Status Card -->
+    <div id="statusMainCard" style="background: var(--bg-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 1rem; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); transition: all 0.3s ease;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 1.25rem;">
+                <div id="statusIconBg" style="width: 64px; height: 64px; border-radius: 1rem; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: rgba(156, 163, 175, 0.1);">
+                    ⏳
+                </div>
+                <div>
+                    <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary, #9ca3af); font-weight: 600;">Estado do Serviço</div>
+                    <div id="statusTitle" style="font-size: 2rem; font-weight: 800; color: #f9fafb; line-height: 1.2; margin-top: 0.2rem;">
+                        Verificando...
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <span id="statusBadge" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.25rem; border-radius: 0.75rem; font-size: 1.1rem; font-weight: 700; background: rgba(156, 163, 175, 0.2); color: #9ca3af; border: 1px solid rgba(156, 163, 175, 0.3);">
+                    AGUARDE
+                </span>
+            </div>
+        </div>
+
+        <p id="statusDescription" style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.08); color: var(--text-secondary, #cbd5e1); font-size: 0.95rem; line-height: 1.6;">
+            Consultando o banco de dados `queue_status`...
+        </p>
+    </div>
+
+    <!-- Technical Metrics Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+        <!-- Last Update -->
+        <div style="background: var(--bg-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 0.85rem; padding: 1.25rem;">
+            <div style="font-size: 0.8rem; text-transform: uppercase; color: #9ca3af; font-weight: 600; margin-bottom: 0.5rem;">Último Heartbeat</div>
+            <div id="metricLastUpdate" style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">--/--/---- --:--:--</div>
+            <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.3rem;">Fuso: Brasília (America/Sao_Paulo)</div>
+        </div>
+
+        <!-- Time Elapsed -->
+        <div style="background: var(--bg-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 0.85rem; padding: 1.25rem;">
+            <div style="font-size: 0.8rem; text-transform: uppercase; color: #9ca3af; font-weight: 600; margin-bottom: 0.5rem;">Tempo Desde o Último Sinal</div>
+            <div id="metricElapsed" style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">-- segundos</div>
+            <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.3rem;">Tolerância Máxima: 15 seg</div>
+        </div>
+
+        <!-- Polling Interval -->
+        <div style="background: var(--bg-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 0.85rem; padding: 1.25rem;">
+            <div style="font-size: 0.8rem; text-transform: uppercase; color: #9ca3af; font-weight: 600; margin-bottom: 0.5rem;">Frequência de Atualização</div>
+            <div style="font-size: 1.25rem; font-weight: 700; color: #f8fafc;">5 Segundos</div>
+            <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.3rem;">Loop Heartbeat + Frontend Polling</div>
+        </div>
+    </div>
+
+    <!-- Technical Specification Rules Box -->
+    <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0.85rem; padding: 1.5rem;">
+        <h3 style="font-size: 1rem; font-weight: 700; color: #f8fafc; margin-top: 0; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            ℹ️ Regras Operacionais da Fila
+        </h3>
+        <ul style="margin: 0; padding-left: 1.25rem; color: #94a3b8; font-size: 0.9rem; line-height: 1.7;">
+            <li>O worker local executa um loop a cada <strong>5 segundos</strong> gravando status <code>Ativo</code> na tabela <code>queue_status</code>.</li>
+            <li>Ao desligar a aplicação (graceful shutdown), o worker sinaliza <code>Inativo</code> no banco de dados.</li>
+            <li>Caso ocorra uma queda abrupta de energia ou travamento onde o desligamento gracioso não puder ser enviado, a página considera o serviço <strong>Inativo</strong> se o último heartbeat tiver mais de <strong>15 segundos</strong>.</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    async function fetchQueueStatus() {
+        const pulseDot = document.getElementById('pulseDot');
+        const pulseText = document.getElementById('pulseText');
+        const statusMainCard = document.getElementById('statusMainCard');
+        const statusIconBg = document.getElementById('statusIconBg');
+        const statusTitle = document.getElementById('statusTitle');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusDescription = document.getElementById('statusDescription');
+        const metricLastUpdate = document.getElementById('metricLastUpdate');
+        const metricElapsed = document.getElementById('metricElapsed');
+
+        try {
+            pulseDot.style.backgroundColor = '#eab308'; // Yellow pulsing
+            pulseText.textContent = 'Verificando...';
+
+            const res = await fetch('/api/status');
+            if (!res.ok) throw new Error('Falha na requisição da API de status');
+            const data = await res.json();
+
+            metricLastUpdate.textContent = data.dt_last_update_status_formatted || '--/--/---- --:--:--';
+            metricElapsed.textContent = `${data.seconds_since_last_update ?? 0}s atrás`;
+
+            if (data.is_operational) {
+                // ACTIVE STATUS
+                statusMainCard.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+                statusIconBg.style.background = 'rgba(34, 197, 94, 0.15)';
+                statusIconBg.textContent = '🟢';
+                statusTitle.textContent = 'Serviço Ativo';
+                statusTitle.style.color = '#4ade80';
+
+                statusBadge.style.background = 'rgba(34, 197, 94, 0.2)';
+                statusBadge.style.color = '#4ade80';
+                statusBadge.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+                statusBadge.textContent = '● ATIVO';
+
+                statusDescription.textContent = 'O processador de fila local está operacional e enviando confirmações de vida (heartbeat) a cada 5 segundos.';
+                
+                pulseDot.style.backgroundColor = '#22c55e';
+                pulseText.textContent = 'Sincronizado';
+            } else {
+                // INACTIVE STATUS
+                statusMainCard.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                statusIconBg.style.background = 'rgba(239, 68, 68, 0.15)';
+                statusIconBg.textContent = '🔴';
+                statusTitle.textContent = 'Serviço Inativo';
+                statusTitle.style.color = '#f87171';
+
+                statusBadge.style.background = 'rgba(239, 68, 68, 0.2)';
+                statusBadge.style.color = '#f87171';
+                statusBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                statusBadge.textContent = '● INATIVO';
+
+                if (data.seconds_since_last_update > 15) {
+                    statusDescription.textContent = `Atenção: O serviço de fila não respondeu nos últimos ${Math.round(data.seconds_since_last_update)} segundos (excedeu o limite de tolerância de 15s).`;
+                } else {
+                    statusDescription.textContent = 'O serviço de fila foi desativado ou encerrado graciosamente no ambiente local.';
+                }
+
+                pulseDot.style.backgroundColor = '#ef4444';
+                pulseText.textContent = 'Offline';
+            }
+        } catch (err) {
+            console.error('Erro ao consultar status da fila:', err);
+            statusMainCard.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            statusIconBg.style.background = 'rgba(239, 68, 68, 0.15)';
+            statusIconBg.textContent = '⚠️';
+            statusTitle.textContent = 'Erro de Conexão';
+            statusTitle.style.color = '#f87171';
+
+            statusBadge.style.background = 'rgba(239, 68, 68, 0.2)';
+            statusBadge.style.color = '#f87171';
+            statusBadge.textContent = '● ERRO';
+
+            statusDescription.textContent = 'Não foi possível se conectar ao servidor da API para obter o status da fila.';
+            pulseDot.style.backgroundColor = '#ef4444';
+            pulseText.textContent = 'Erro de Rede';
+        }
+    }
+
+    // Initial fetch on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchQueueStatus();
+        // Poll every 5 seconds
+        setInterval(fetchQueueStatus, 5000);
+    });
+</script>

@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Podcast> Podcasts => Set<Podcast>();
     public DbSet<ProcessingJob> ProcessingJobs => Set<ProcessingJob>();
     public DbSet<Speaker> Speakers => Set<Speaker>();
+    public DbSet<QueueStatus> QueueStatus => Set<QueueStatus>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,6 +41,15 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Name).HasMaxLength(150);
             entity.Property(e => e.Source).HasMaxLength(50);
             entity.Property(e => e.ColorHex).HasMaxLength(20);
+        });
+
+        modelBuilder.Entity<QueueStatus>(entity =>
+        {
+            entity.ToTable("queue_status");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.DsStatus).HasColumnName("ds_status").HasMaxLength(50);
+            entity.Property(e => e.DtLastUpdateStatus).HasColumnName("dt_last_update_status");
         });
     }
 }

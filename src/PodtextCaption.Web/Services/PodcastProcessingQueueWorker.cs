@@ -31,6 +31,9 @@ public class PodcastProcessingQueueWorker : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            // Heartbeat update to queue_status table
+            await UpdateHeartbeatAsync("Ativo");
+
             try
             {
                 await ProcessNextQueuedJobAsync(stoppingToken);
@@ -54,7 +57,63 @@ public class PodcastProcessingQueueWorker : BackgroundService
             }
         }
 
+        await UpdateHeartbeatAsync("Inativo");
         _logger.LogInformation("Podcast Processing Queue Worker stopping.");
+    }
+
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Podcast Processing Queue Worker performing graceful shutdown...");
+        await UpdateHeartbeatAsync("Inativo");
+        await base.StopAsync(cancellationToken);
+    }
+
+    private async Task UpdateHeartbeatAsync(string status)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            DateTime brasiliaNow = GetBrasiliaTime();
+
+            var record = await db.QueueStatus.FirstOrDefaultAsync(q => q.Id == 1);
+            if (record == null)
+            {
+                record = new QueueStatus { Id = 1, DsStatus = status, DtLastUpdateStatus = brasiliaNow };
+                db.QueueStatus.Add(record);
+            }
+            else
+            {
+                record.DsStatus = status;
+                record.DtLastUpdateStatus = brasiliaNow;
+            }
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Queue Worker: Failed to update queue status to {Status}", status);
+        }
+    }
+
+    public static DateTime GetBrasiliaTime()
+    {
+        try
+        {
+            TimeZoneInfo brTz = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, brTz);
+        }
+        catch
+        {
+            try
+            {
+                TimeZoneInfo brTzWin = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
+                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, brTzWin);
+            }
+            catch
+            {
+                return DateTime.UtcNow.AddHours(-3);
+            }
+        }
     }
 
     private async Task ProcessNextQueuedJobAsync(CancellationToken stoppingToken)
