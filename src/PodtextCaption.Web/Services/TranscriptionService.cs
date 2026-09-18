@@ -37,7 +37,9 @@ public class TranscriptionService : ITranscriptionService
     {
         try
         {
-            var response = await _httpClient.GetAsync("health", cancellationToken);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(2));
+            var response = await _httpClient.GetAsync("health", cts.Token);
             return response.IsSuccessStatusCode;
         }
         catch
