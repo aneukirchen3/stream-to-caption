@@ -194,12 +194,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (podcast.status === 'Completed') {
                     clearInterval(interval);
-                    hideProgressCard();
-                    const submitBtn = document.getElementById('submitBtn');
-                    if (submitBtn) submitBtn.disabled = false;
-                    
-                    showCompletedCard(podcast);
-                    loadPodcastLibrary();
+                    updateProgressUI('Completed', 100, podcast.statusMessage || 'Processamento e envio FTP concluídos com sucesso!');
+                    setTimeout(() => {
+                        hideProgressCard();
+                        const submitBtn = document.getElementById('submitBtn');
+                        if (submitBtn) submitBtn.disabled = false;
+                        
+                        showCompletedCard(podcast);
+                        loadPodcastLibrary();
+                    }, 1200);
                 } else if (podcast.status === 'Failed') {
                     clearInterval(interval);
                     hideProgressCard();
@@ -224,6 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const stepConvert = document.getElementById('stepConvert');
         const stepTranscribe = document.getElementById('stepTranscribe');
         const stepGenerate = document.getElementById('stepGenerate');
+        const stepFtp = document.getElementById('stepFtp');
 
         resetStepIcons();
 
@@ -260,12 +264,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 setStepState(stepGenerate, '●');
                 break;
             case 'Processing':
-                pct = (typeof progress === 'number' && progress > 0) ? progress : 95;
-                msg = statusMessage || 'Gerando timestamps de palavras e sincronizando...';
+                pct = (typeof progress === 'number' && progress > 0) ? progress : 92;
+                msg = statusMessage || 'Gerando transcrição e sincronizando dados...';
                 setStepState(stepDownload, '✓');
                 setStepState(stepConvert, '✓');
                 setStepState(stepTranscribe, '✓');
                 setStepState(stepGenerate, '●');
+                break;
+            case 'SyncingFtp':
+                pct = (typeof progress === 'number' && progress > 0) ? progress : 96;
+                msg = statusMessage || 'Enviando e validando arquivos via FTP no servidor...';
+                setStepState(stepDownload, '✓');
+                setStepState(stepConvert, '✓');
+                setStepState(stepTranscribe, '✓');
+                setStepState(stepGenerate, '✓');
+                setStepState(stepFtp, '●');
+                break;
+            case 'Completed':
+                pct = 100;
+                msg = statusMessage || 'Processamento e envio FTP concluídos com sucesso!';
+                setStepState(stepDownload, '✓');
+                setStepState(stepConvert, '✓');
+                setStepState(stepTranscribe, '✓');
+                setStepState(stepGenerate, '✓');
+                if (statusMessage && (statusMessage.toLowerCase().includes('aviso') || statusMessage.toLowerCase().includes('erro') || statusMessage.toLowerCase().includes('falha'))) {
+                    setStepState(stepFtp, '⚠️');
+                } else {
+                    setStepState(stepFtp, '✓');
+                }
                 break;
             default:
                 if (typeof progress === 'number' && progress > 0) pct = progress;
@@ -283,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetStepIcons() {
-        ['stepDownload', 'stepConvert', 'stepTranscribe', 'stepGenerate'].forEach(id => {
+        ['stepDownload', 'stepConvert', 'stepTranscribe', 'stepGenerate', 'stepFtp'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 el.style.color = 'var(--text-muted)';
@@ -295,7 +321,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setStepState(el, symbol) {
         if (!el) return;
-        el.style.color = symbol === '✓' ? '#22c55e' : 'var(--accent-color)';
+        if (symbol === '✓') {
+            el.style.color = '#22c55e';
+        } else if (symbol === '⚠️') {
+            el.style.color = '#f59e0b';
+        } else if (symbol === '✗') {
+            el.style.color = '#ef4444';
+        } else {
+            el.style.color = 'var(--accent-color)';
+        }
         const icon = el.querySelector('.step-icon');
         if (icon) icon.textContent = symbol;
     }
@@ -321,12 +355,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const completedTitle = document.getElementById('completedTitle');
         const completedMeta = document.getElementById('completedMeta');
         const completedListenBtn = document.getElementById('completedListenBtn');
+        const completedFtpNotice = document.getElementById('completedFtpNotice');
 
         if (completedCard && completedTitle && completedListenBtn) {
             completedTitle.textContent = podcast.title || 'Untitled Episode';
             if (completedMeta) {
                 completedMeta.textContent = `${formatTime(podcast.duration)} · ${podcast.language?.toUpperCase() || 'AUTO'}`;
             }
+
+            if (completedFtpNotice) {
+                const msg = podcast.statusMessage || '';
+                const hasWarning = msg.toLowerCase().includes('aviso') || msg.toLowerCase().includes('erro') || msg.toLowerCase().includes('falha');
+                if (hasWarning) {
+                    completedFtpNotice.style.display = 'block';
+                    completedFtpNotice.style.background = 'rgba(239, 68, 68, 0.1)';
+                    completedFtpNotice.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+                    completedFtpNotice.style.color = '#ef4444';
+                    completedFtpNotice.innerHTML = `<strong>⚠️ Aviso no Envio FTP:</strong> ${escapeHtml(msg)}`;
+                } else {
+                    completedFtpNotice.style.display = 'block';
+                    completedFtpNotice.style.background = 'rgba(34, 197, 94, 0.1)';
+                    completedFtpNotice.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+                    completedFtpNotice.style.color = '#22c55e';
+                    completedFtpNotice.innerHTML = `<strong>✓ Sincronização FTP:</strong> Arquivo de áudio validado e sincronizado no servidor publicado com sucesso.`;
+                }
+            }
+
             completedListenBtn.href = `/listen/${podcast.id}`;
             completedCard.style.display = 'block';
             completedCard.scrollIntoView({ behavior: 'smooth' });

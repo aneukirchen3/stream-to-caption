@@ -11,6 +11,7 @@ namespace PodtextCaption.Web.Services;
 public interface IFtpStorageService
 {
     Task UploadFileAsync(string localFilePath, string relativeRemotePath, CancellationToken cancellationToken = default);
+    Task<bool> VerifyFileExistsAsync(string relativeRemotePath, CancellationToken cancellationToken = default);
 }
 
 public class FtpStorageService : IFtpStorageService
@@ -31,9 +32,9 @@ public class FtpStorageService : IFtpStorageService
         string? password = _configuration["Ftp:Password"];
         string remoteBasePath = _configuration["Ftp:RemoteBasePath"] ?? "/StreamToCaption/data";
 
-        if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(user))
+        if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(user) || password == null)
         {
-            _logger.LogWarning("FTP upload skipped: FTP server or user not configured.");
+            _logger.LogWarning("FTP upload skipped: FTP server, user, or password not configured.");
             return;
         }
 
@@ -109,6 +110,53 @@ public class FtpStorageService : IFtpStorageService
             {
                 _logger.LogDebug(ex, "FTP mkdir attempt failed for {Uri}", mkdirUri);
             }
+        }
+    }
+
+    public async Task<bool> VerifyFileExistsAsync(string relativeRemotePath, CancellationToken cancellationToken = default)
+    {
+        string? server = _configuration["Ftp:Server"];
+        string? user = _configuration["Ftp:User"];
+        string? password = _configuration["Ftp:Password"];
+        string remoteBasePath = _configuration["Ftp:RemoteBasePath"] ?? "/StreamToCaption/data";
+
+        if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(user))
+        {
+            _logger.LogWarning("FTP verify skipped: FTP server or user not configured.");
+            return false;
+        }
+
+        string cleanRemotePath = relativeRemotePath.TrimStart('/');
+        string fullRemoteUri = $"ftp://{server}{remoteBasePath}/{cleanRemotePath}";
+
+        try
+        {
+            var request = (FtpWebRequest)WebRequest.Create(fullRemoteUri);
+            request.Method = WebRequestMethods.Ftp.GetFileSize;
+            request.Credentials = new NetworkCredential(user, password);
+            request.UseBinary = true;
+            request.UsePassive = true;
+            request.KeepAlive = false;
+
+            using var response = (FtpWebResponse)await request.GetResponseAsync();
+            return response.ContentLength >= 0;
+        }
+        catch (WebException ex)
+        {
+            if (ex.Response is FtpWebResponse ftpResp)
+            {
+                _logger.LogWarning("FTP verify check failed for {Uri}: {StatusCode} - {Description}", fullRemoteUri, ftpResp.StatusCode, ftpResp.StatusDescription?.Trim());
+            }
+            else
+            {
+                _logger.LogWarning(ex, "FTP verify check failed with WebException for {Uri}", fullRemoteUri);
+            }
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "FTP verify check failed with Exception for {Uri}", fullRemoteUri);
+            return false;
         }
     }
 }

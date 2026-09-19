@@ -162,14 +162,20 @@ public class PodcastJobService : IPodcastJobService
             }
 
             // Step 5: Saving transcript JSON
-            await UpdateJobStatusAsync(db, job, podcast, PodcastStatus.Processing, 95, "Saving transcript data...");
+            // Step 5: Saving transcript JSON
+            await UpdateJobStatusAsync(db, job, podcast, PodcastStatus.Processing, 92, "Saving transcript data...");
 
             string transcriptPath = await storage.SaveTranscriptAsync(podcast.Id, transcriptDto);
             podcast.TranscriptPath = transcriptPath;
             podcast.Duration = transcriptDto.Duration;
             podcast.Language = transcriptDto.Language;
 
-            // FTP Synchronization (Audio & Transcript JSON)
+            // Step 6: FTP Synchronization (Audio & Transcript JSON)
+            await UpdateJobStatusAsync(db, job, podcast, PodcastStatus.SyncingFtp, 95, "Uploading files (audio & transcript) via FTP to web server...");
+
+            bool audioVerifiedOnFtp = false;
+            string? ftpWarning = null;
+
             try
             {
                 var ftp = scope.ServiceProvider.GetRequiredService<IFtpStorageService>();
@@ -182,10 +188,24 @@ public class PodcastJobService : IPodcastJobService
                     string audioFileName = Path.GetFileName(audioToUpload);
                     _logger.LogInformation("Job {JobId}: Uploading audio {FileName} via FTP to /StreamToCaption/data/audio/...", jobId, audioFileName);
                     await ftp.UploadFileAsync(audioToUpload, $"audio/{audioFileName}", cancellationToken);
+
+                    // Validate audio file on FTP server
+                    await UpdateJobStatusAsync(db, job, podcast, PodcastStatus.SyncingFtp, 98, "Validating audio file on FTP server...");
+                    audioVerifiedOnFtp = await ftp.VerifyFileExistsAsync($"audio/{audioFileName}", cancellationToken);
+                    if (!audioVerifiedOnFtp)
+                    {
+                        ftpWarning = $"Falha ao validar o arquivo de áudio ({audioFileName}) no servidor FTP.";
+                        _logger.LogWarning("Job {JobId}: {Warning}", jobId, ftpWarning);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Job {JobId}: Audio file {FileName} successfully verified on FTP server.", jobId, audioFileName);
+                    }
                 }
                 else
                 {
-                    _logger.LogWarning("Job {JobId}: Audio file not found locally for FTP upload. Path={Path}", jobId, podcast.AudioPath);
+                    ftpWarning = "Arquivo de áudio local não localizado para envio FTP.";
+                    _logger.LogWarning("Job {JobId}: {Warning} Path={Path}", jobId, ftpWarning, podcast.AudioPath);
                 }
 
                 string? transcriptToUpload = ResolvePhysicalPath(podcast.TranscriptPath, "transcripts");
@@ -202,16 +222,19 @@ public class PodcastJobService : IPodcastJobService
             }
             catch (Exception ex)
             {
+                ftpWarning = $"Erro ao enviar arquivos via FTP: {ex.Message}";
                 _logger.LogError(ex, "FTP sync warning for Job {JobId}, Podcast {PodcastId}", jobId, podcastId);
             }
 
-            // Step 6: Completed!
+            // Step 7: Completed!
             podcast.Status = PodcastStatus.Completed;
             podcast.CompletedAt = DateTime.UtcNow;
 
             job.Status = PodcastStatus.Completed;
             job.Progress = 100;
-            job.StatusMessage = "Transcription and speaker identification completed!";
+            job.StatusMessage = !string.IsNullOrEmpty(ftpWarning)
+                ? $"Concluído com aviso: {ftpWarning}"
+                : "Transcription and FTP synchronization completed successfully!";
             job.CompletedAt = DateTime.UtcNow;
 
             await db.SaveChangesAsync();
