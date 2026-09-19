@@ -1,0 +1,16 @@
+[Unit]
+Description=PodTextCaption Official Service
+After=network.target
+
+[Service]
+Type=simple
+User=aneuk
+Group=aneuk
+WorkingDirectory=/home/aneuk/Projetos/PodtextCaption
+ExecStart=/home/aneuk/Projetos/PodtextCaption/transcription/venv/bin/python /home/aneuk/Projetos/PodtextCaption/main.py
+Environment="PORT=5003"
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
