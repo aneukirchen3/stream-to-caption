@@ -105,11 +105,6 @@ public class PodcastController : ControllerBase
     [HttpPost("transcribe")]
     public async Task<IActionResult> TranscribeUrl([FromBody] TranscribeRequest request)
     {
-        if (!IsProcessingEnabled)
-        {
-            return BadRequest(new { error = "A importação e transcrição de novos áudios/vídeos estão disponíveis apenas no ambiente local (localhost)." });
-        }
-
         if (string.IsNullOrWhiteSpace(request.Url))
         {
             return BadRequest(new { error = "URL is required." });
@@ -137,7 +132,7 @@ public class PodcastController : ControllerBase
     {
         if (!IsProcessingEnabled)
         {
-            return BadRequest(new { error = "A importação e transcrição de novos áudios/vídeos estão disponíveis apenas no ambiente local (localhost)." });
+            return BadRequest(new { error = "O upload direto de arquivos locais está disponível apenas no ambiente local (localhost). No ambiente web, utilize a importação via URL." });
         }
         if (file == null || file.Length == 0)
         {
@@ -171,7 +166,28 @@ public class PodcastController : ControllerBase
     {
         var podcast = await _podcastService.GetPodcastByIdAsync(id);
         if (podcast == null) return NotFound(new { error = "Podcast not found." });
-        return Ok(podcast);
+
+        var latestJob = await _db.ProcessingJobs
+            .Where(j => j.PodcastId == id)
+            .OrderByDescending(j => j.StartedAt)
+            .FirstOrDefaultAsync();
+
+        return Ok(new
+        {
+            podcast.Id,
+            podcast.Title,
+            podcast.Url,
+            podcast.AudioPath,
+            podcast.NormalizedAudioPath,
+            podcast.TranscriptPath,
+            podcast.Duration,
+            Status = latestJob?.Status ?? podcast.Status,
+            Progress = latestJob?.Progress ?? (podcast.Status == PodcastStatus.Completed ? 100 : 10),
+            StatusMessage = latestJob?.StatusMessage ?? podcast.Status,
+            podcast.ErrorMessage,
+            podcast.CreatedAt,
+            podcast.CompletedAt
+        });
     }
 
     [HttpGet("{id}/transcript")]

@@ -77,8 +77,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (importCard && !document.getElementById('envNoticeBanner')) {
                         const notice = document.createElement('div');
                         notice.id = 'envNoticeBanner';
-                        notice.style.cssText = 'background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: var(--text-primary); padding: 0.85rem 1rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5;';
-                        notice.innerHTML = '<strong>ℹ️ Ambiente de Demonstração:</strong> A importação e transcrição via fila de novos áudios/vídeos são ativas no ambiente <strong>Localhost</strong>. Neste ambiente publicado, você pode navegar na biblioteca, ouvir os áudios e visualizar as transcrições salvas.';
+                        notice.style.cssText = 'background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: var(--text-primary); padding: 0.85rem 1rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5;';
+                        notice.innerHTML = '<strong>🌐 Fila Cloud Conectada:</strong> A importação via URL está ativa no ambiente publicado. As mídias (podcasts e vídeos) enviadas são gravadas na fila e processadas em tempo real pelo serviço local com sincronização automática.';
                         importCard.insertBefore(notice, importCard.firstChild);
                     }
                 }
@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert(`Transcription failed: ${podcast.errorMessage || 'Unknown error'}`);
                     loadPodcastLibrary();
                 } else {
-                    updateProgressUI(podcast.status);
+                    updateProgressUI(podcast.status, podcast.progress, podcast.statusMessage);
                 }
             } catch (e) {
                 console.error('Polling error:', e);
@@ -216,9 +216,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
     }
 
-    function updateProgressUI(status) {
-        let pct = 10;
-        let msg = 'Processing...';
+    function updateProgressUI(status, progress, statusMessage) {
+        let pct = (typeof progress === 'number' && progress > 0) ? progress : 10;
+        let msg = statusMessage || 'Processando...';
 
         const stepDownload = document.getElementById('stepDownload');
         const stepConvert = document.getElementById('stepConvert');
@@ -228,39 +228,48 @@ document.addEventListener('DOMContentLoaded', () => {
         resetStepIcons();
 
         switch (status) {
+            case 'Pending':
+                pct = (typeof progress === 'number' && progress > 0) ? progress : 10;
+                msg = statusMessage || 'Item na fila de processamento (aguardando worker local)...';
+                setStepState(stepDownload, '●');
+                break;
             case 'Downloading':
-                pct = 25;
-                msg = 'Downloading audio from URL...';
+                pct = (typeof progress === 'number' && progress > 0) ? progress : 25;
+                msg = statusMessage || 'Baixando áudio/vídeo da URL...';
                 setStepState(stepDownload, '●');
                 break;
             case 'Converting':
-                pct = 50;
-                msg = 'Normalizing audio format (16kHz mono)...';
+                pct = (typeof progress === 'number' && progress > 0) ? progress : 50;
+                msg = statusMessage || 'Normalizando formato do áudio com FFmpeg (16kHz mono)...';
                 setStepState(stepDownload, '✓');
                 setStepState(stepConvert, '●');
                 break;
             case 'Transcribing':
-                pct = 70;
-                msg = 'Transcribing speech locally using Whisper...';
+                pct = (typeof progress === 'number' && progress > 0) ? progress : 70;
+                msg = statusMessage || 'Transcrevendo fala localmente com Whisper...';
                 setStepState(stepDownload, '✓');
                 setStepState(stepConvert, '✓');
                 setStepState(stepTranscribe, '●');
                 break;
             case 'IdentifyingSpeakers':
-                pct = 85;
-                msg = 'Identifying speakers and matching names...';
+                pct = (typeof progress === 'number' && progress > 0) ? progress : 85;
+                msg = statusMessage || 'Identificando oradores e mapeando nomes...';
                 setStepState(stepDownload, '✓');
                 setStepState(stepConvert, '✓');
                 setStepState(stepTranscribe, '✓');
                 setStepState(stepGenerate, '●');
                 break;
             case 'Processing':
-                pct = 95;
-                msg = 'Generating word timestamps...';
+                pct = (typeof progress === 'number' && progress > 0) ? progress : 95;
+                msg = statusMessage || 'Gerando timestamps de palavras e sincronizando...';
                 setStepState(stepDownload, '✓');
                 setStepState(stepConvert, '✓');
                 setStepState(stepTranscribe, '✓');
                 setStepState(stepGenerate, '●');
+                break;
+            default:
+                if (typeof progress === 'number' && progress > 0) pct = progress;
+                if (statusMessage) msg = statusMessage;
                 break;
         }
 
