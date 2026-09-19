@@ -174,16 +174,30 @@ public class PodcastJobService : IPodcastJobService
             {
                 var ftp = scope.ServiceProvider.GetRequiredService<IFtpStorageService>();
 
-                if (!string.IsNullOrEmpty(podcast.AudioPath) && File.Exists(podcast.AudioPath))
+                string? audioToUpload = ResolvePhysicalPath(podcast.AudioPath, "audio")
+                    ?? ResolvePhysicalPath(podcast.NormalizedAudioPath, "audio");
+
+                if (!string.IsNullOrEmpty(audioToUpload) && File.Exists(audioToUpload))
                 {
-                    string audioFileName = Path.GetFileName(podcast.AudioPath);
-                    await ftp.UploadFileAsync(podcast.AudioPath, $"audio/{audioFileName}", cancellationToken);
+                    string audioFileName = Path.GetFileName(audioToUpload);
+                    _logger.LogInformation("Job {JobId}: Uploading audio {FileName} via FTP to /StreamToCaption/data/audio/...", jobId, audioFileName);
+                    await ftp.UploadFileAsync(audioToUpload, $"audio/{audioFileName}", cancellationToken);
+                }
+                else
+                {
+                    _logger.LogWarning("Job {JobId}: Audio file not found locally for FTP upload. Path={Path}", jobId, podcast.AudioPath);
                 }
 
-                if (!string.IsNullOrEmpty(podcast.TranscriptPath) && File.Exists(podcast.TranscriptPath))
+                string? transcriptToUpload = ResolvePhysicalPath(podcast.TranscriptPath, "transcripts");
+                if (!string.IsNullOrEmpty(transcriptToUpload) && File.Exists(transcriptToUpload))
                 {
-                    string transcriptFileName = Path.GetFileName(podcast.TranscriptPath);
-                    await ftp.UploadFileAsync(podcast.TranscriptPath, $"transcripts/{transcriptFileName}", cancellationToken);
+                    string transcriptFileName = Path.GetFileName(transcriptToUpload);
+                    _logger.LogInformation("Job {JobId}: Uploading transcript {FileName} via FTP to /StreamToCaption/data/transcripts/...", jobId, transcriptFileName);
+                    await ftp.UploadFileAsync(transcriptToUpload, $"transcripts/{transcriptFileName}", cancellationToken);
+                }
+                else
+                {
+                    _logger.LogWarning("Job {JobId}: Transcript file not found locally for FTP upload. Path={Path}", jobId, podcast.TranscriptPath);
                 }
             }
             catch (Exception ex)
@@ -226,5 +240,25 @@ public class PodcastJobService : IPodcastJobService
         job.StatusMessage = message;
         podcast.Status = status;
         await db.SaveChangesAsync();
+    }
+
+    private static string? ResolvePhysicalPath(string? path, string defaultSubDir)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        if (File.Exists(path)) return Path.GetFullPath(path);
+
+        string fileName = Path.GetFileName(path);
+        string currentDir = Directory.GetCurrentDirectory();
+        string baseDir = AppContext.BaseDirectory;
+
+        string candidate1 = Path.Combine(currentDir, "data", defaultSubDir, fileName);
+        string candidate2 = Path.Combine(baseDir, "data", defaultSubDir, fileName);
+        string candidate3 = Path.GetFullPath(Path.Combine(currentDir, "../../data", defaultSubDir, fileName));
+
+        if (File.Exists(candidate1)) return candidate1;
+        if (File.Exists(candidate2)) return candidate2;
+        if (File.Exists(candidate3)) return candidate3;
+
+        return null;
     }
 }
